@@ -455,13 +455,26 @@ h2 {
 
 /* ---- tables ---- */
 
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
   background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
+  min-width: 700px;
+}
+
+.quests-table {
+  min-width: 700px;
+}
+
+.maps-table {
+  min-width: 480px;
 }
 
 th {
@@ -779,6 +792,29 @@ tr.done .quest-link {
 
   .filter-label {
     width: auto;
+  }
+
+  .app {
+    padding: 12px 10px 60px;
+  }
+
+  header {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .header-meta {
+    margin-left: 0;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  h1 {
+    font-size: 18px;
+  }
+
+  h2 {
+    font-size: 14px;
   }
 }
 

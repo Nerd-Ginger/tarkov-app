@@ -65,6 +65,7 @@ export function QuestsTable({ quests, done, onToggleDone, onQuestClick }: Props)
   if (quests.length === 0) return <p className="empty-note">No quests match the current filters.</p>
 
   return (
+    <div className="table-wrap">
     <table className="quests-table">
       <thead>
         <tr>
@@ -133,5 +134,6 @@ export function QuestsTable({ quests, done, onToggleDone, onQuestClick }: Props)
         })}
       </tbody>
     </table>
+    </div>
   )
 }

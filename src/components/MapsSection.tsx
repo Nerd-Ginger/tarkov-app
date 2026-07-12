@@ -66,6 +66,7 @@ export function MapsSection({ quests, filters, done, onQuestClick }: Props) {
   if (rows.length === 0) return <p className="empty-note">No quests match the current filters.</p>
 
   return (
+    <div className="table-wrap">
     <table className="maps-table">
       <thead>
         <tr>
@@ -117,5 +118,6 @@ export function MapsSection({ quests, filters, done, onQuestClick }: Props) {
         })}
       </tbody>
     </table>
+    </div>
   )
 }
