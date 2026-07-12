@@ -148,6 +148,12 @@ function normalizeMapName(name: string): string {
   return MAP_ALIASES[name] ?? name
 }
 
+/** Arc name = text before the first " - " ("The Punisher - Part 3" → "The Punisher"). */
+function seriesBase(name: string): string | null {
+  const i = name.indexOf(' - ')
+  return i === -1 ? null : name.slice(0, i).trim()
+}
+
 export function normalizeTasks(tasks: RawTask[]): Quest[] {
   const quests = tasks.map((t) => {
     const objectives = t.objectives.map((o) => ({
@@ -182,12 +188,22 @@ export function normalizeTasks(tasks: RawTask[]): Quest[] {
       maps: [...mapSet].sort((a, b) => mapSortKey(a) - mapSortKey(b)),
       categories,
       objectives,
+      series: seriesBase(t.name),
       requires: (t.taskRequirements ?? []).map((r) => r.task.id),
       blockingRequires: (t.taskRequirements ?? [])
         .filter((r) => (r.status ?? ['complete']).includes('complete'))
         .map((r) => r.task.id),
     }
   })
+
+  // A prefix is only an arc if 2+ quests share it — drop lone "X - Y" names.
+  const seriesCounts = new Map<string, number>()
+  for (const q of quests) {
+    if (q.series) seriesCounts.set(q.series, (seriesCounts.get(q.series) ?? 0) + 1)
+  }
+  for (const q of quests) {
+    if (q.series && (seriesCounts.get(q.series) ?? 0) < 2) q.series = null
+  }
 
   quests.sort(
     (a, b) =>

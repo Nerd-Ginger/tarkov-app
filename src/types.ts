@@ -53,6 +53,8 @@ export interface Quest {
   maps: string[]
   categories: ObjectiveCategory[]
   objectives: QuestObjective[]
+  /** Questline/arc name (text before the first " - "), when the quest is part of a multi-quest series; else null. */
+  series: string | null
   /** All prerequisite quest ids (used to draw the progression flow chart). */
   requires: string[]
   /**

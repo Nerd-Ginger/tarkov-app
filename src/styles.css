@@ -681,6 +681,40 @@ tbody tr:hover {
   border-bottom-color: var(--accent);
 }
 
+.series-badge {
+  display: inline-block;
+  margin-top: 3px;
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--cat-build) 40%, transparent);
+  border-radius: 4px;
+  color: var(--cat-build);
+  font-size: 10.5px;
+  padding: 1px 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.series-badge::before {
+  content: '⛓ ';
+  opacity: 0.7;
+}
+
+.series-badge:hover {
+  border-color: var(--cat-build);
+  background: color-mix(in srgb, var(--cat-build) 12%, transparent);
+}
+
+.quest-name {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+}
+
+.series-tag {
+  color: var(--cat-build);
+}
+
 tr.done td {
   opacity: 0.55;
 }

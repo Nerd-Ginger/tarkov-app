@@ -8,6 +8,7 @@ interface Props {
   done: Set<string>
   onToggleDone: (id: string) => void
   onClose: () => void
+  seriesStats: Map<string, { total: number; done: number }>
 }
 
 function MapBadge({ name }: { name: string }) {
@@ -27,7 +28,7 @@ function MapBadge({ name }: { name: string }) {
   )
 }
 
-export function QuestModal({ quest, done, onToggleDone, onClose }: Props) {
+export function QuestModal({ quest, done, onToggleDone, onClose, seriesStats }: Props) {
   useEffect(() => {
     if (!quest) return
     const onKey = (e: KeyboardEvent) => {
@@ -58,6 +59,14 @@ export function QuestModal({ quest, done, onToggleDone, onClose }: Props) {
           <span>{quest.trader}</span>
           <span>·</span>
           <span>Level {quest.minLevel}+</span>
+          {quest.series && seriesStats.has(quest.series) && (
+            <>
+              <span>·</span>
+              <span className="series-tag">
+                {quest.series} arc {seriesStats.get(quest.series)!.done}/{seriesStats.get(quest.series)!.total}
+              </span>
+            </>
+          )}
         </div>
 
         <div className="modal-section">

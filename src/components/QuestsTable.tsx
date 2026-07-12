@@ -30,6 +30,8 @@ interface Props {
   done: Set<string>
   onToggleDone: (id: string) => void
   onQuestClick: (quest: Quest) => void
+  seriesStats: Map<string, { total: number; done: number }>
+  onSeriesClick: (series: string) => void
 }
 
 function SortHeader({ label, field, active, dir, onSort, className }: {
@@ -44,7 +46,7 @@ function SortHeader({ label, field, active, dir, onSort, className }: {
   )
 }
 
-export function QuestsTable({ quests, done, onToggleDone, onQuestClick }: Props) {
+export function QuestsTable({ quests, done, onToggleDone, onQuestClick, seriesStats, onSeriesClick }: Props) {
   const [sortField, setSortField] = useState<SortField | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>('asc')
 
@@ -97,6 +99,15 @@ export function QuestsTable({ quests, done, onToggleDone, onQuestClick }: Props)
                 <button className="quest-link" onClick={() => onQuestClick(q)} title="Click for details">
                   {q.name}
                 </button>
+                {q.series && seriesStats.has(q.series) && (
+                  <button
+                    className="series-badge"
+                    onClick={() => onSeriesClick(q.series!)}
+                    title={`${q.series} questline — click to show the whole arc`}
+                  >
+                    {q.series} {seriesStats.get(q.series)!.done}/{seriesStats.get(q.series)!.total}
+                  </button>
+                )}
               </td>
               <td>{q.trader}</td>
               <td className="level-col">{q.minLevel}</td>

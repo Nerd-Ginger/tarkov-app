@@ -121,6 +121,24 @@ export default function App() {
     [visibleQuests, done],
   )
 
+  // Per-arc progress (done/total) for the questline badges.
+  const seriesStats = useMemo(() => {
+    const m = new Map<string, { total: number; done: number }>()
+    for (const q of visibleQuests) {
+      if (!q.series) continue
+      const s = m.get(q.series) ?? { total: 0, done: 0 }
+      s.total++
+      if (done.has(q.id)) s.done++
+      m.set(q.series, s)
+    }
+    return m
+  }, [visibleQuests, done])
+
+  const filterToSeries = useCallback((series: string) => {
+    setFilters((f) => ({ ...f, search: series }))
+    requestAnimationFrame(() => document.getElementById('by-quest')?.scrollIntoView())
+  }, [])
+
   if (status === 'loading') {
     return <div className="app-state">Loading quest data from tarkov.dev…</div>
   }
@@ -282,6 +300,8 @@ export default function App() {
                   done={done}
                   onToggleDone={toggleQuest}
                   onQuestClick={setDetailQuest}
+                  seriesStats={seriesStats}
+                  onSeriesClick={filterToSeries}
                 />
               )}
             </section>
@@ -316,6 +336,7 @@ export default function App() {
           done={done}
           onToggleDone={toggleQuest}
           onClose={() => setDetailQuest(null)}
+          seriesStats={seriesStats}
         />
       </div>
     </div>
