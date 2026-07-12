@@ -22,6 +22,7 @@ const QUERY = `{
     wikiLink
     trader { name }
     map { name }
+    taskRequirements { task { id } status }
     objectives {
       type
       description

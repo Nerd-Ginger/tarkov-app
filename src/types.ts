@@ -35,6 +35,7 @@ export interface Quest {
   maps: string[]
   categories: ObjectiveCategory[]
   objectives: QuestObjective[]
+  requires: string[]
 }
 
 export interface RawObjective {
@@ -46,6 +47,11 @@ export interface RawObjective {
   foundInRaid?: boolean | null
 }
 
+export interface RawTaskRequirement {
+  task: { id: string }
+  status: string[]
+}
+
 export interface RawTask {
   id: string
   name: string
@@ -54,5 +60,6 @@ export interface RawTask {
   wikiLink: string
   trader: { name: string } | null
   map: { name: string } | null
+  taskRequirements?: RawTaskRequirement[]
   objectives: RawObjective[]
 }

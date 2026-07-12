@@ -952,3 +952,118 @@ tr.done .quest-link {
   border-color: var(--accent);
   color: var(--accent-strong);
 }
+
+/* ---- quest progression trees ---- */
+
+.quest-trees {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.trader-tree {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.trader-tree-header {
+  margin: 0;
+  padding: 10px 14px;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--accent-strong);
+  background: var(--panel-2);
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.trader-tree-header:hover {
+  color: var(--accent);
+}
+
+.trader-tree-count {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-dim);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.trader-tree-body {
+  padding: 12px 10px 12px 16px;
+}
+
+.tree-branch {
+  position: relative;
+}
+
+.tree-children {
+  padding-left: 20px;
+  border-left: 1px solid var(--border);
+  margin-left: 8px;
+}
+
+.tree-node {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  margin: 2px 0;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 4px 4px 0;
+  transition: background 0.1s;
+}
+
+.tree-node:hover {
+  background: rgba(198, 177, 144, 0.06);
+}
+
+.tree-node.done {
+  opacity: 0.45;
+}
+
+.tree-node.done .tree-quest-name {
+  text-decoration: line-through;
+}
+
+.tree-check {
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.tree-quest-name {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+  border-bottom: 1px dotted transparent;
+}
+
+.tree-quest-name:hover {
+  color: var(--accent-strong);
+  border-bottom-color: var(--accent);
+}
+
+.tree-level {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.tree-node .kappa-badge {
+  font-size: 13px;
+}

@@ -174,6 +174,7 @@ export function normalizeTasks(tasks: RawTask[]): Quest[] {
       maps: [...mapSet].sort((a, b) => mapSortKey(a) - mapSortKey(b)),
       categories,
       objectives,
+      requires: (t.taskRequirements ?? []).map((r) => r.task.id),
     }
   })
 

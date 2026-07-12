@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { FilterBar } from './components/FilterBar'
 import { MapsSection } from './components/MapsSection'
 import { QuestModal } from './components/QuestModal'
+import { QuestTree } from './components/QuestTree'
 import { QuestsTable } from './components/QuestsTable'
 import { mapSortKey, traderSortKey } from './data/normalize'
 import { EMPTY_FILTERS, matchesAll } from './filters'
@@ -25,6 +26,7 @@ export default function App() {
   const [detailQuest, setDetailQuest] = useState<Quest | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mapsOpen, setMapsOpen] = useState(true)
+  const [treeOpen, setTreeOpen] = useState(false)
   const [questsOpen, setQuestsOpen] = useState(true)
 
   // The Arena questline is hidden entirely until the user opts in — you have to
@@ -82,6 +84,9 @@ export default function App() {
           <li><a href="#filters" onClick={() => setSidebarOpen(false)}>Filters</a></li>
           <li>
             <a href="#by-map" onClick={() => { setMapsOpen(true); setSidebarOpen(false) }}>By Map</a>
+          </li>
+          <li>
+            <a href="#by-progression" onClick={() => { setTreeOpen(true); setSidebarOpen(false) }}>Progression</a>
           </li>
           <li>
             <a href="#by-quest" onClick={() => { setQuestsOpen(true); setSidebarOpen(false) }}>By Quest</a>
@@ -150,6 +155,21 @@ export default function App() {
               </p>
               <MapsSection quests={visibleQuests} filters={filters} done={done} onQuestClick={setDetailQuest} />
             </>
+          )}
+        </section>
+
+        <section id="by-progression">
+          <h2 className="collapsible" onClick={() => setTreeOpen(!treeOpen)}>
+            <span className={`collapse-arrow ${treeOpen ? 'open' : ''}`}>&#9654;</span>
+            Quest Progression
+          </h2>
+          {treeOpen && (
+            <QuestTree
+              quests={visibleQuests}
+              done={done}
+              onToggleDone={toggle}
+              onQuestClick={setDetailQuest}
+            />
           )}
         </section>
 
