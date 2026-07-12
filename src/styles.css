@@ -279,6 +279,13 @@ h1 {
   color: #c9915f;
 }
 
+.arena-hidden-note {
+  color: var(--warn);
+  font-size: 11px;
+  font-style: normal;
+  cursor: help;
+}
+
 h2 {
   font-size: 15px;
   text-transform: uppercase;

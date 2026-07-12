@@ -121,6 +121,13 @@ export default function App() {
     [visibleQuests, done],
   )
 
+  // Completed Arena quests are excluded from the count while the Arena toggle is
+  // off — surface how many so the total doesn't look like it silently dropped.
+  const hiddenArenaDone = useMemo(
+    () => (filters.showArena ? 0 : quests.filter((q) => q.arena && done.has(q.id)).length),
+    [quests, done, filters.showArena],
+  )
+
   // Per-arc progress (done/total) for the questline badges.
   const seriesStats = useMemo(() => {
     const m = new Map<string, { total: number; done: number }>()
@@ -197,7 +204,14 @@ export default function App() {
         </div>
         <div className="sidebar-section">
           <span className="sidebar-label">Progress</span>
-          <div className="sidebar-progress">{doneCount}/{visibleQuests.length} done</div>
+          <div className="sidebar-progress">
+            {doneCount}/{visibleQuests.length} done
+            {hiddenArenaDone > 0 && (
+              <em className="arena-hidden-note" title="Completed Arena quests aren't counted until you enable the Arena (PvP) toggle.">
+                {' '}+{hiddenArenaDone} Arena hidden
+              </em>
+            )}
+          </div>
           <div className="sidebar-progress-bar">
             <div className="sidebar-progress-fill" style={{ width: `${visibleQuests.length ? (doneCount / visibleQuests.length) * 100 : 0}%` }} />
           </div>
@@ -236,6 +250,14 @@ export default function App() {
           <div className="header-meta">
             <span className="progress">
               {doneCount}/{visibleQuests.length} done
+              {hiddenArenaDone > 0 && (
+                <em
+                  className="arena-hidden-note"
+                  title="Completed Arena quests aren't counted until you enable the Arena (PvP) toggle."
+                >
+                  {' '}+{hiddenArenaDone} Arena hidden
+                </em>
+              )}
             </span>
             {fetchedAt && (
               <span className="freshness">
