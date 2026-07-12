@@ -1,8 +1,8 @@
-import type { RawTask } from '../types'
+import type { RawHideoutStation, RawTask } from '../types'
 import snapshot from '../data/snapshot.json'
 
 const API_URL = 'https://api.tarkov.dev/graphql'
-const CACHE_KEY = 'tarkov.tasks.v3'
+const CACHE_KEY = 'tarkov.tasks.v4'
 export const CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000 // 12h
 
 /**
@@ -28,7 +28,18 @@ const QUERY = `{
       description
       optional
       maps { name }
-      ... on TaskObjectiveItem { foundInRaid }
+      ... on TaskObjectiveItem { foundInRaid item { id name shortName } count }
+    }
+  }
+  hideoutStations(lang: en, gameMode: pve) {
+    id
+    name
+    levels {
+      level
+      itemRequirements { item { id name shortName } count }
+      stationLevelRequirements { station { id name } level }
+      traderRequirements { trader { name } level }
+      skillRequirements { name level }
     }
   }
 }`
@@ -36,6 +47,7 @@ const QUERY = `{
 export interface TaskCache {
   fetchedAt: number
   tasks: RawTask[]
+  stations: RawHideoutStation[]
 }
 
 export function readCache(): TaskCache | null {
@@ -44,6 +56,8 @@ export function readCache(): TaskCache | null {
     if (!raw) return null
     const parsed = JSON.parse(raw) as TaskCache
     if (!Array.isArray(parsed.tasks) || parsed.tasks.length === 0) return null
+    // a cache without stations is from an incomplete fetch — refetch instead
+    if (!Array.isArray(parsed.stations)) return null
     return parsed
   } catch {
     return null
@@ -67,8 +81,9 @@ export async function fetchTasks(): Promise<TaskCache> {
   if (!res.ok) throw new Error(`tarkov.dev API returned ${res.status}`)
   const json = await res.json()
   const tasks: RawTask[] | undefined = json?.data?.tasks
+  const stations: RawHideoutStation[] = json?.data?.hideoutStations ?? []
   if (!tasks || tasks.length === 0) throw new Error('tarkov.dev API returned no tasks')
-  const cache = { fetchedAt: Date.now(), tasks }
+  const cache = { fetchedAt: Date.now(), tasks, stations }
   writeCache(cache)
   return cache
 }

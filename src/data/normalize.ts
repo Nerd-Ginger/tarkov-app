@@ -1,5 +1,5 @@
 import { ANY_MAP, ARENA, MAP_UNKNOWN, NO_RAID } from '../types'
-import type { ObjectiveCategory, Quest, RawTask } from '../types'
+import type { ObjectiveCategory, Quest, RawHideoutStation, RawTask, StationLevel } from '../types'
 
 /** Map variants that are the same physical location for quest purposes. */
 const MAP_ALIASES: Record<string, string> = {
@@ -115,6 +115,9 @@ const LOCATED_TYPES = new Set([
 /** Objective types that are genuinely location-agnostic — doable on whatever map you run. */
 const ANYWHERE_TYPES = new Set(['shoot', 'findItem'])
 
+/** Objective types that consume items from your stash when the quest is turned in. */
+const HAND_IN_TYPES = new Set(['giveItem', 'plantItem', 'sellItem'])
+
 /**
  * Arena questline quests carry a "ZONE]" name tag ([PVE ZONE] in PvE, [PVP ZONE] in
  * regular). Their map-less objectives ("win a match in Arena") are typed `visit`, so
@@ -152,6 +155,10 @@ export function normalizeTasks(tasks: RawTask[]): Quest[] {
       category: CATEGORY_BY_TYPE[o.type] ?? ('Other' as ObjectiveCategory),
       maps: [...new Set((o.maps ?? []).map((m) => normalizeMapName(m.name)))],
       optional: o.optional,
+      item: o.item ?? null,
+      count: o.count ?? 0,
+      foundInRaid: o.foundInRaid === true,
+      handIn: HAND_IN_TYPES.has(o.type),
     }))
 
     const mapSet = new Set<string>()
@@ -185,4 +192,32 @@ export function normalizeTasks(tasks: RawTask[]): Quest[] {
       a.name.localeCompare(b.name),
   )
   return quests
+}
+
+export function stationLevelKey(stationId: string, level: number): string {
+  return `${stationId}:${level}`
+}
+
+export function normalizeStations(stations: RawHideoutStation[]): StationLevel[] {
+  const levels: StationLevel[] = []
+  for (const s of stations) {
+    for (const l of s.levels) {
+      levels.push({
+        key: stationLevelKey(s.id, l.level),
+        stationId: s.id,
+        stationName: s.name,
+        level: l.level,
+        items: l.itemRequirements ?? [],
+        stationPrereqs: (l.stationLevelRequirements ?? []).map((r) => ({
+          stationId: r.station.id,
+          stationName: r.station.name,
+          level: r.level,
+        })),
+        traderReqs: (l.traderRequirements ?? []).map((r) => ({ trader: r.trader.name, level: r.level })),
+        skillReqs: l.skillRequirements ?? [],
+      })
+    }
+  }
+  levels.sort((a, b) => a.stationName.localeCompare(b.stationName) || a.level - b.level)
+  return levels
 }

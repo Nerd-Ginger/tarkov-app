@@ -32,40 +32,11 @@ export function useDone() {
     })
   }, [])
 
-  const exportDone = useCallback(() => {
-    const data = JSON.stringify({ version: 1, done: [...done] }, null, 2)
-    const blob = new Blob([data], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'tarkov-progress.json'
-    a.click()
-    URL.revokeObjectURL(url)
-  }, [done])
-
-  const importDone = useCallback(() => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = '.json'
-    input.onchange = () => {
-      const file = input.files?.[0]
-      if (!file) return
-      const reader = new FileReader()
-      reader.onload = () => {
-        try {
-          const parsed = JSON.parse(reader.result as string)
-          const ids: string[] = Array.isArray(parsed) ? parsed : parsed.done ?? []
-          const next = new Set(ids.filter((id): id is string => typeof id === 'string'))
-          persist(next)
-          setDone(next)
-        } catch {
-          alert('Could not read that file — expected a tarkov-progress.json save.')
-        }
-      }
-      reader.readAsText(file)
-    }
-    input.click()
+  const replaceDone = useCallback((ids: string[]) => {
+    const next = new Set(ids.filter((id) => typeof id === 'string'))
+    persist(next)
+    setDone(next)
   }, [])
 
-  return { done, toggle, exportDone, importDone }
+  return { done, toggle, replaceDone }
 }

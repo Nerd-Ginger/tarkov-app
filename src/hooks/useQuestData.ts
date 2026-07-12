@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CACHE_MAX_AGE_MS, SNAPSHOT, fetchTasks, readCache } from '../api/tarkovDev'
 import type { TaskCache } from '../api/tarkovDev'
-import { normalizeTasks } from '../data/normalize'
+import { normalizeStations, normalizeTasks } from '../data/normalize'
 
 export type LoadStatus = 'loading' | 'ready' | 'error'
 
@@ -36,6 +36,7 @@ export function useQuestData() {
   }, [refresh])
 
   const quests = useMemo(() => (cache ? normalizeTasks(cache.tasks) : []), [cache])
+  const stations = useMemo(() => (cache ? normalizeStations(cache.stations ?? []) : []), [cache])
 
-  return { quests, status, offline, fetchedAt: cache?.fetchedAt ?? null, refresh }
+  return { quests, stations, status, offline, fetchedAt: cache?.fetchedAt ?? null, refresh }
 }

@@ -1,15 +1,34 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { FilterBar } from './components/FilterBar'
+import { HideoutView } from './components/HideoutView'
+import { ItemsView } from './components/ItemsView'
 import { MapsSection } from './components/MapsSection'
 import { QuestModal } from './components/QuestModal'
 import { QuestTree } from './components/QuestTree'
 import { QuestsTable } from './components/QuestsTable'
+import { questHandInItems } from './data/items'
 import { mapSortKey, traderSortKey } from './data/normalize'
+import { exportProgress, importProgress } from './data/progressFile'
 import { EMPTY_FILTERS, matchesAll } from './filters'
 import type { Filters } from './filters'
 import type { Quest } from './types'
 import { useDone } from './hooks/useDone'
+import { useHideout } from './hooks/useHideout'
+import { useInventory } from './hooks/useInventory'
 import { useQuestData } from './hooks/useQuestData'
+
+type View = 'quests' | 'items' | 'hideout'
+const VIEW_KEY = 'tarkov.view.v1'
+const VIEWS: { id: View; label: string }[] = [
+  { id: 'quests', label: 'Quests' },
+  { id: 'items', label: 'Items' },
+  { id: 'hideout', label: 'Hideout' },
+]
+
+function readView(): View {
+  const v = localStorage.getItem(VIEW_KEY)
+  return v === 'items' || v === 'hideout' ? v : 'quests'
+}
 
 function timeAgo(ts: number): string {
   const mins = Math.round((Date.now() - ts) / 60000)
@@ -20,14 +39,57 @@ function timeAgo(ts: number): string {
 }
 
 export default function App() {
-  const { quests, status, offline, fetchedAt, refresh } = useQuestData()
-  const { done, toggle, exportDone, importDone } = useDone()
+  const { quests, stations, status, offline, fetchedAt, refresh } = useQuestData()
+  const { done, toggle, replaceDone } = useDone()
+  const { inventory, setCount, applyDeltas, replaceInventory } = useInventory()
+  const { built, toggleBuilt, replaceBuilt } = useHideout()
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const [detailQuest, setDetailQuest] = useState<Quest | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mapsOpen, setMapsOpen] = useState(true)
   const [treeOpen, setTreeOpen] = useState(false)
   const [questsOpen, setQuestsOpen] = useState(true)
+  const [view, setView] = useState<View>(readView)
+
+  const switchView = (v: View) => {
+    setView(v)
+    try {
+      localStorage.setItem(VIEW_KEY, v)
+    } catch {
+      // fine — view just won't persist
+    }
+  }
+
+  const questById = useMemo(() => new Map(quests.map((q) => [q.id, q])), [quests])
+  const levelByKey = useMemo(() => new Map(stations.map((l) => [l.key, l])), [stations])
+
+  // Completing a quest consumes its hand-in items from the inventory;
+  // unchecking restores them. Same deal for hideout builds.
+  const toggleQuest = useCallback(
+    (id: string) => {
+      const q = questById.get(id)
+      if (q) applyDeltas(questHandInItems(q), done.has(id) ? 1 : -1)
+      toggle(id)
+    },
+    [questById, done, applyDeltas, toggle],
+  )
+
+  const toggleLevel = useCallback(
+    (key: string) => {
+      const l = levelByKey.get(key)
+      if (l) applyDeltas(l.items.map((r) => ({ item: r.item, count: r.count })), built.has(key) ? 1 : -1)
+      toggleBuilt(key)
+    },
+    [levelByKey, built, applyDeltas, toggleBuilt],
+  )
+
+  const saveProgress = () => exportProgress(done, inventory, built)
+  const loadProgress = () =>
+    importProgress((data) => {
+      replaceDone(data.done)
+      replaceInventory(data.inventory)
+      replaceBuilt(data.hideout)
+    })
 
   // The Arena questline is hidden entirely until the user opts in — you have to
   // "touch Arena" to see it. Everything below is derived from this gated list.
@@ -72,6 +134,16 @@ export default function App() {
     )
   }
 
+  const openQuestSection = (section: 'filters' | 'by-map' | 'by-progression' | 'by-quest') => {
+    switchView('quests')
+    if (section === 'by-map') setMapsOpen(true)
+    if (section === 'by-progression') setTreeOpen(true)
+    if (section === 'by-quest') setQuestsOpen(true)
+    setSidebarOpen(false)
+    // let the quests view render before jumping to the anchor
+    requestAnimationFrame(() => document.getElementById(section)?.scrollIntoView())
+  }
+
   return (
     <div className="app-layout">
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
@@ -81,17 +153,29 @@ export default function App() {
           <button className="sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Close menu">✕</button>
         </div>
         <ul className="sidebar-nav">
-          <li><a href="#filters" onClick={() => setSidebarOpen(false)}>Filters</a></li>
-          <li>
-            <a href="#by-map" onClick={() => { setMapsOpen(true); setSidebarOpen(false) }}>By Map</a>
-          </li>
-          <li>
-            <a href="#by-progression" onClick={() => { setTreeOpen(true); setSidebarOpen(false) }}>Progression</a>
-          </li>
-          <li>
-            <a href="#by-quest" onClick={() => { setQuestsOpen(true); setSidebarOpen(false) }}>By Quest</a>
-          </li>
+          {VIEWS.map((v) => (
+            <li key={v.id}>
+              <button
+                className={`sidebar-view-link ${view === v.id ? 'active' : ''}`}
+                onClick={() => {
+                  switchView(v.id)
+                  setSidebarOpen(false)
+                }}
+              >
+                {v.label}
+              </button>
+            </li>
+          ))}
         </ul>
+        <div className="sidebar-section">
+          <span className="sidebar-label">Quest sections</span>
+          <ul className="sidebar-nav sub">
+            <li><button className="sidebar-view-link" onClick={() => openQuestSection('filters')}>Filters</button></li>
+            <li><button className="sidebar-view-link" onClick={() => openQuestSection('by-map')}>By Map</button></li>
+            <li><button className="sidebar-view-link" onClick={() => openQuestSection('by-progression')}>Progression</button></li>
+            <li><button className="sidebar-view-link" onClick={() => openQuestSection('by-quest')}>By Quest</button></li>
+          </ul>
+        </div>
         <div className="sidebar-section">
           <span className="sidebar-label">Progress</span>
           <div className="sidebar-progress">{doneCount}/{visibleQuests.length} done</div>
@@ -101,8 +185,8 @@ export default function App() {
         </div>
         <div className="sidebar-section">
           <span className="sidebar-label">Data</span>
-          <button className="sidebar-btn" onClick={exportDone}>Save progress</button>
-          <button className="sidebar-btn" onClick={importDone}>Load progress</button>
+          <button className="sidebar-btn" onClick={saveProgress}>Save progress</button>
+          <button className="sidebar-btn" onClick={loadProgress}>Load progress</button>
           <button className="sidebar-btn" onClick={() => void refresh()}>Refresh data</button>
         </div>
         {fetchedAt && (
@@ -119,6 +203,17 @@ export default function App() {
             <span /><span /><span />
           </button>
           <h1>Tarkov Quest Tracker</h1>
+          <nav className="view-tabs">
+            {VIEWS.map((v) => (
+              <button
+                key={v.id}
+                className={`view-tab ${view === v.id ? 'active' : ''}`}
+                onClick={() => switchView(v.id)}
+              >
+                {v.label}
+              </button>
+            ))}
+          </nav>
           <div className="header-meta">
             <span className="progress">
               {doneCount}/{visibleQuests.length} done
@@ -129,69 +224,96 @@ export default function App() {
                 {offline && <em className="offline"> · offline, showing cached</em>}
               </span>
             )}
-            <button className="clear-btn" onClick={exportDone}>Save progress</button>
-            <button className="clear-btn" onClick={importDone}>Load progress</button>
+            <button className="clear-btn" onClick={saveProgress}>Save progress</button>
+            <button className="clear-btn" onClick={loadProgress}>Load progress</button>
             <button className="clear-btn" onClick={() => void refresh()}>
               Refresh data
             </button>
           </div>
         </header>
 
-        <div id="filters">
-          <FilterBar filters={filters} onChange={setFilters} allMaps={allMaps} allTraders={allTraders} />
-        </div>
+        {view === 'quests' && (
+          <>
+            <div id="filters">
+              <FilterBar filters={filters} onChange={setFilters} allMaps={allMaps} allTraders={allTraders} />
+            </div>
 
-        <section id="by-map">
-          <h2 className="collapsible" onClick={() => setMapsOpen(!mapsOpen)}>
-            <span className={`collapse-arrow ${mapsOpen ? 'open' : ''}`}>&#9654;</span>
-            By map
-          </h2>
-          {mapsOpen && (
-            <>
-              <p className="legend">
-                The last rows aren't real maps. <strong>Any map</strong> = truly anywhere (kills, find-in-raid).{' '}
-                <strong>Arena</strong> = Arena mode. <strong className="warn-text">Map unknown</strong> = tied to a place
-                the data didn't name — check the wiki. <strong>No raid needed</strong> = hand-ins &amp; builds.
-              </p>
-              <MapsSection quests={visibleQuests} filters={filters} done={done} onQuestClick={setDetailQuest} />
-            </>
-          )}
-        </section>
+            <section id="by-map">
+              <h2 className="collapsible" onClick={() => setMapsOpen(!mapsOpen)}>
+                <span className={`collapse-arrow ${mapsOpen ? 'open' : ''}`}>&#9654;</span>
+                By map
+              </h2>
+              {mapsOpen && (
+                <>
+                  <p className="legend">
+                    The last rows aren't real maps. <strong>Any map</strong> = truly anywhere (kills, find-in-raid).{' '}
+                    <strong>Arena</strong> = Arena mode. <strong className="warn-text">Map unknown</strong> = tied to a place
+                    the data didn't name — check the wiki. <strong>No raid needed</strong> = hand-ins &amp; builds.
+                  </p>
+                  <MapsSection quests={visibleQuests} filters={filters} done={done} onQuestClick={setDetailQuest} />
+                </>
+              )}
+            </section>
 
-        <section id="by-progression">
-          <h2 className="collapsible" onClick={() => setTreeOpen(!treeOpen)}>
-            <span className={`collapse-arrow ${treeOpen ? 'open' : ''}`}>&#9654;</span>
-            Quest Progression
-          </h2>
-          {treeOpen && (
-            <QuestTree
+            <section id="by-progression">
+              <h2 className="collapsible" onClick={() => setTreeOpen(!treeOpen)}>
+                <span className={`collapse-arrow ${treeOpen ? 'open' : ''}`}>&#9654;</span>
+                Quest Progression
+              </h2>
+              {treeOpen && (
+                <QuestTree
+                  quests={visibleQuests}
+                  done={done}
+                  onToggleDone={toggleQuest}
+                  onQuestClick={setDetailQuest}
+                />
+              )}
+            </section>
+
+            <section id="by-quest">
+              <h2 className="collapsible" onClick={() => setQuestsOpen(!questsOpen)}>
+                <span className={`collapse-arrow ${questsOpen ? 'open' : ''}`}>&#9654;</span>
+                Quests <span className="section-count">({filteredQuests.length})</span>
+              </h2>
+              {questsOpen && (
+                <QuestsTable
+                  quests={filteredQuests}
+                  done={done}
+                  onToggleDone={toggleQuest}
+                  onQuestClick={setDetailQuest}
+                />
+              )}
+            </section>
+          </>
+        )}
+
+        {view === 'items' && (
+          <section>
+            <h2>Items needed</h2>
+            <p className="legend">
+              Everything outstanding across quests and hideout builds. Set <strong>Have</strong> to what's in your
+              stash — completing a quest or build consumes its items automatically.
+            </p>
+            <ItemsView
               quests={visibleQuests}
               done={done}
-              onToggleDone={toggle}
+              stations={stations}
+              built={built}
+              inventory={inventory}
+              onSetCount={setCount}
               onQuestClick={setDetailQuest}
             />
-          )}
-        </section>
+          </section>
+        )}
 
-        <section id="by-quest">
-          <h2 className="collapsible" onClick={() => setQuestsOpen(!questsOpen)}>
-            <span className={`collapse-arrow ${questsOpen ? 'open' : ''}`}>&#9654;</span>
-            Quests <span className="section-count">({filteredQuests.length})</span>
-          </h2>
-          {questsOpen && (
-            <QuestsTable
-              quests={filteredQuests}
-              done={done}
-              onToggleDone={toggle}
-              onQuestClick={setDetailQuest}
-            />
-          )}
-        </section>
+        {view === 'hideout' && (
+          <HideoutView stations={stations} built={built} inventory={inventory} onToggleBuilt={toggleLevel} />
+        )}
 
         <QuestModal
           quest={detailQuest}
           done={done}
-          onToggleDone={toggle}
+          onToggleDone={toggleQuest}
           onClose={() => setDetailQuest(null)}
         />
       </div>

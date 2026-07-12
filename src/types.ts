@@ -15,11 +15,27 @@ export const CATEGORIES = [
 
 export type ObjectiveCategory = (typeof CATEGORIES)[number]
 
+export interface ItemRef {
+  id: string
+  name: string
+  shortName: string
+}
+
 export interface QuestObjective {
   description: string
   category: ObjectiveCategory
   maps: string[]
   optional: boolean
+  /** Item + count for hand-in/find objectives (giveItem, findItem, plantItem, sellItem). */
+  item: ItemRef | null
+  count: number
+  foundInRaid: boolean
+  /**
+   * True for objective types that consume items (giveItem/plantItem/sellItem).
+   * findItem is the acquisition step of the same items, so it never counts —
+   * otherwise quests like Shortage would double-count (find 3 + give 3 = 6).
+   */
+  handIn: boolean
 }
 
 export interface Quest {
@@ -45,6 +61,9 @@ export interface RawObjective {
   maps: { name: string }[] | null
   /** Present only on item objectives (giveItem/findItem); true when the item must be found in raid. */
   foundInRaid?: boolean | null
+  /** Present only on item objectives. */
+  item?: ItemRef | null
+  count?: number | null
 }
 
 export interface RawTaskRequirement {
@@ -62,4 +81,37 @@ export interface RawTask {
   map: { name: string } | null
   taskRequirements?: RawTaskRequirement[]
   objectives: RawObjective[]
+}
+
+// ---- hideout ----
+
+export interface RawItemRequirement {
+  item: ItemRef
+  count: number
+}
+
+export interface RawStationLevel {
+  level: number
+  itemRequirements: RawItemRequirement[]
+  stationLevelRequirements: { station: { id: string; name: string }; level: number }[]
+  traderRequirements: { trader: { name: string }; level: number }[]
+  skillRequirements: { name: string; level: number }[]
+}
+
+export interface RawHideoutStation {
+  id: string
+  name: string
+  levels: RawStationLevel[]
+}
+
+/** One buildable hideout station level, normalized. Key is `${stationId}:${level}`. */
+export interface StationLevel {
+  key: string
+  stationId: string
+  stationName: string
+  level: number
+  items: RawItemRequirement[]
+  stationPrereqs: { stationId: string; stationName: string; level: number }[]
+  traderReqs: { trader: string; level: number }[]
+  skillReqs: { name: string; level: number }[]
 }
