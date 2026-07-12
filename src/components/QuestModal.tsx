@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import type { Quest } from '../types'
 import { EVENT_MAPS, PSEUDO_MAPS, isPseudoMap } from '../data/normalize'
+import { LightkeeperMark } from './LightkeeperMark'
 
 interface Props {
   quest: Quest | null
@@ -49,6 +50,8 @@ export function QuestModal({ quest, done, onToggleDone, onClose }: Props) {
         <h3 className="modal-title">
           {quest.name}
           {quest.kappa && <span className="kappa-badge" title="Required for Kappa"> κ</span>}
+          {' '}
+          <LightkeeperMark quest={quest} />
         </h3>
 
         <div className="modal-meta">

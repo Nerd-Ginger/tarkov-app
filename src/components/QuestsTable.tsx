@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Quest } from '../types'
 import { EVENT_MAPS, PSEUDO_MAPS, isPseudoMap, traderSortKey } from '../data/normalize'
+import { LightkeeperMark } from './LightkeeperMark'
 
 type SortField = 'name' | 'trader' | 'level' | 'kappa'
 type SortDir = 'asc' | 'desc'
@@ -74,6 +75,7 @@ export function QuestsTable({ quests, done, onToggleDone, onQuestClick }: Props)
           <SortHeader label="Trader" field="trader" active={sortField === 'trader'} dir={sortDir} onSort={handleSort} />
           <SortHeader label="Lv" field="level" active={sortField === 'level'} dir={sortDir} onSort={handleSort} className="level-col" />
           <SortHeader label="κ" field="kappa" active={sortField === 'kappa'} dir={sortDir} onSort={handleSort} className="kappa-col" />
+          <th className="lk-col" title="🔦 Lightkeeper questline · ● on the path to unlock Lightkeeper">🔦</th>
           <th>Objectives</th>
           <th>Maps</th>
         </tr>
@@ -99,6 +101,7 @@ export function QuestsTable({ quests, done, onToggleDone, onQuestClick }: Props)
               <td>{q.trader}</td>
               <td className="level-col">{q.minLevel}</td>
               <td className="kappa-col">{q.kappa && <span className="kappa-badge">κ</span>}</td>
+              <td className="lk-col"><LightkeeperMark quest={q} /></td>
               <td>
                 <div className="badge-group">
                   {q.categories.map((c) => (

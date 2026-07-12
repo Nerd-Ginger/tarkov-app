@@ -176,6 +176,7 @@ export function normalizeTasks(tasks: RawTask[]): Quest[] {
       trader: t.trader?.name ?? 'Unknown',
       minLevel: t.minPlayerLevel,
       kappa: t.kappaRequired,
+      lightkeeper: t.lightkeeperRequired === true,
       arena: isArenaQuest(t),
       wikiLink: t.wikiLink,
       maps: [...mapSet].sort((a, b) => mapSortKey(a) - mapSortKey(b)),

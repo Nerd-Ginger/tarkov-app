@@ -648,6 +648,23 @@ tbody tr:hover {
   font-size: 15px;
 }
 
+.lk-col {
+  width: 1%;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.lk-badge {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.lk-dot {
+  color: var(--cat-visit);
+  font-size: 9px;
+  vertical-align: 2px;
+}
+
 .quest-link {
   background: none;
   border: none;

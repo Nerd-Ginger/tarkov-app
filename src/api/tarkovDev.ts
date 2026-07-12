@@ -19,6 +19,7 @@ const QUERY = `{
     name
     minPlayerLevel
     kappaRequired
+    lightkeeperRequired
     wikiLink
     trader { name }
     map { name }

@@ -44,6 +44,8 @@ export interface Quest {
   trader: string
   minLevel: number
   kappa: boolean
+  /** On the path to unlock Lightkeeper (tarkov.dev lightkeeperRequired). */
+  lightkeeper: boolean
   /** True for the Arena questline ([PVE ZONE] / [PVP ZONE]) — hidden until the Arena toggle is on. */
   arena: boolean
   wikiLink: string
@@ -83,6 +85,7 @@ export interface RawTask {
   name: string
   minPlayerLevel: number
   kappaRequired: boolean
+  lightkeeperRequired?: boolean
   wikiLink: string
   trader: { name: string } | null
   map: { name: string } | null
