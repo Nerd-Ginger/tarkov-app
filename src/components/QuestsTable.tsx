@@ -1,14 +1,67 @@
+import { useMemo, useState } from 'react'
 import type { Quest } from '../types'
-import { EVENT_MAPS, PSEUDO_MAPS, isPseudoMap } from '../data/normalize'
+import { EVENT_MAPS, PSEUDO_MAPS, isPseudoMap, traderSortKey } from '../data/normalize'
+
+type SortField = 'name' | 'trader' | 'level' | 'kappa'
+type SortDir = 'asc' | 'desc'
+
+function comparator(field: SortField, dir: SortDir) {
+  const m = dir === 'asc' ? 1 : -1
+  return (a: Quest, b: Quest): number => {
+    switch (field) {
+      case 'name':
+        return m * a.name.localeCompare(b.name)
+      case 'trader':
+        return m * (traderSortKey(a.trader) - traderSortKey(b.trader)) || a.name.localeCompare(b.name)
+      case 'level':
+        return m * (a.minLevel - b.minLevel) || a.name.localeCompare(b.name)
+      case 'kappa': {
+        const ak = a.kappa ? 1 : 0
+        const bk = b.kappa ? 1 : 0
+        return m * (bk - ak) || a.name.localeCompare(b.name)
+      }
+    }
+  }
+}
 
 interface Props {
   quests: Quest[]
   done: Set<string>
   onToggleDone: (id: string) => void
-  highlightId: string | null
+  onQuestClick: (quest: Quest) => void
 }
 
-export function QuestsTable({ quests, done, onToggleDone, highlightId }: Props) {
+function SortHeader({ label, field, active, dir, onSort, className }: {
+  label: string; field: SortField; active: boolean; dir: SortDir
+  onSort: (f: SortField) => void; className?: string
+}) {
+  const arrow = active ? (dir === 'asc' ? ' ▲' : ' ▼') : ''
+  return (
+    <th className={`sortable ${className ?? ''} ${active ? 'sorted' : ''}`} onClick={() => onSort(field)}>
+      {label}{arrow}
+    </th>
+  )
+}
+
+export function QuestsTable({ quests, done, onToggleDone, onQuestClick }: Props) {
+  const [sortField, setSortField] = useState<SortField | null>(null)
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+
+  const sorted = useMemo(() => {
+    if (!sortField) return quests
+    return [...quests].sort(comparator(sortField, sortDir))
+  }, [quests, sortField, sortDir])
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      if (sortDir === 'asc') setSortDir('desc')
+      else { setSortField(null); setSortDir('asc') }
+    } else {
+      setSortField(field)
+      setSortDir('asc')
+    }
+  }
+
   if (quests.length === 0) return <p className="empty-note">No quests match the current filters.</p>
 
   return (
@@ -16,26 +69,19 @@ export function QuestsTable({ quests, done, onToggleDone, highlightId }: Props) 
       <thead>
         <tr>
           <th className="done-col">✓</th>
-          <th>Quest</th>
-          <th>Trader</th>
-          <th className="level-col">Lv</th>
-          <th className="kappa-col">κ</th>
+          <SortHeader label="Quest" field="name" active={sortField === 'name'} dir={sortDir} onSort={handleSort} />
+          <SortHeader label="Trader" field="trader" active={sortField === 'trader'} dir={sortDir} onSort={handleSort} />
+          <SortHeader label="Lv" field="level" active={sortField === 'level'} dir={sortDir} onSort={handleSort} className="level-col" />
+          <SortHeader label="κ" field="kappa" active={sortField === 'kappa'} dir={sortDir} onSort={handleSort} className="kappa-col" />
           <th>Objectives</th>
           <th>Maps</th>
         </tr>
       </thead>
       <tbody>
-        {quests.map((q) => {
+        {sorted.map((q) => {
           const isDone = done.has(q.id)
-          const objectiveSummary = q.objectives
-            .map((o) => `• ${o.description}${o.optional ? ' (optional)' : ''}`)
-            .join('\n')
           return (
-            <tr
-              key={q.id}
-              id={`quest-row-${q.id}`}
-              className={[isDone ? 'done' : '', highlightId === q.id ? 'highlight' : ''].join(' ')}
-            >
+            <tr key={q.id} className={isDone ? 'done' : ''}>
               <td className="done-col">
                 <input
                   type="checkbox"
@@ -44,10 +90,10 @@ export function QuestsTable({ quests, done, onToggleDone, highlightId }: Props) 
                   aria-label={`Mark ${q.name} done`}
                 />
               </td>
-              <td className="quest-name" title={objectiveSummary}>
-                <a href={q.wikiLink} target="_blank" rel="noreferrer">
+              <td className="quest-name">
+                <button className="quest-link" onClick={() => onQuestClick(q)} title="Click for details">
                   {q.name}
-                </a>
+                </button>
               </td>
               <td>{q.trader}</td>
               <td className="level-col">{q.minLevel}</td>

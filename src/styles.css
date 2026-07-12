@@ -280,6 +280,20 @@ th {
   border-bottom: 1px solid var(--border);
 }
 
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.1s;
+}
+
+th.sortable:hover {
+  color: var(--accent);
+}
+
+th.sorted {
+  color: var(--accent-strong);
+}
+
 td {
   padding: 7px 10px;
   border-bottom: 1px solid var(--border);
@@ -426,13 +440,18 @@ tbody tr:hover {
   font-size: 15px;
 }
 
-.quest-name a {
+.quest-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  text-align: left;
   color: var(--text);
-  text-decoration: none;
+  cursor: pointer;
   border-bottom: 1px dotted var(--text-dim);
 }
 
-.quest-name a:hover {
+.quest-link:hover {
   color: var(--accent-strong);
   border-bottom-color: var(--accent);
 }
@@ -441,22 +460,8 @@ tr.done td {
   opacity: 0.55;
 }
 
-tr.done .quest-name a {
+tr.done .quest-link {
   text-decoration: line-through;
-}
-
-tr.highlight {
-  animation: flash 1.8s ease-out;
-}
-
-@keyframes flash {
-  0%,
-  40% {
-    background: var(--highlight);
-  }
-  100% {
-    background: transparent;
-  }
 }
 
 /* badges */
@@ -580,4 +585,139 @@ tr.highlight {
   .filter-label {
     width: auto;
   }
+}
+
+/* ---- quest detail modal ---- */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  z-index: 100;
+  animation: fade-in 0.12s ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.modal {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: 85vh;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 22px 24px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.modal-close:hover {
+  color: var(--accent-strong);
+}
+
+.modal-title {
+  margin: 0 30px 4px 0;
+  font-size: 18px;
+  color: var(--accent-strong);
+}
+
+.modal-meta {
+  display: flex;
+  gap: 8px;
+  color: var(--text-dim);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.modal-section {
+  margin-bottom: 16px;
+}
+
+.modal-label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-dim);
+  margin-bottom: 7px;
+}
+
+.objective-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.objective-list li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  align-items: start;
+}
+
+.objective-list li.optional {
+  opacity: 0.7;
+}
+
+.objective-text {
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+
+.optional-tag {
+  color: var(--text-dim);
+}
+
+.objective-maps {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  margin-top: 4px;
+}
+
+.wiki-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 11px;
+}
+
+.wiki-link:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
 }

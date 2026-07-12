@@ -1,17 +1,23 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { Quest } from '../types'
 import { EVENT_MAPS, PSEUDO_MAPS, isPseudoMap, mapSortKey } from '../data/normalize'
 import { matchesNonMap } from '../filters'
 import type { Filters } from '../filters'
 
+type MapSortField = 'map' | 'left' | 'total'
+type SortDir = 'asc' | 'desc'
+
 interface Props {
   quests: Quest[]
   filters: Filters
   done: Set<string>
-  onQuestClick: (id: string) => void
+  onQuestClick: (quest: Quest) => void
 }
 
 export function MapsSection({ quests, filters, done, onQuestClick }: Props) {
+  const [sortField, setSortField] = useState<MapSortField | null>(null)
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+
   const rows = useMemo(() => {
     const byMap = new Map<string, Quest[]>()
     for (const q of quests) {
@@ -23,8 +29,39 @@ export function MapsSection({ quests, filters, done, onQuestClick }: Props) {
         list.push(q)
       }
     }
-    return [...byMap.entries()].sort((a, b) => mapSortKey(a[0]) - mapSortKey(b[0]))
-  }, [quests, filters])
+    const entries = [...byMap.entries()]
+    if (!sortField) {
+      entries.sort((a, b) => mapSortKey(a[0]) - mapSortKey(b[0]))
+    } else {
+      const m = sortDir === 'asc' ? 1 : -1
+      entries.sort((a, b) => {
+        switch (sortField) {
+          case 'map':
+            return m * a[0].localeCompare(b[0])
+          case 'left': {
+            const al = a[1].filter((q) => !done.has(q.id)).length
+            const bl = b[1].filter((q) => !done.has(q.id)).length
+            return m * (al - bl) || a[0].localeCompare(b[0])
+          }
+          case 'total':
+            return m * (a[1].length - b[1].length) || a[0].localeCompare(b[0])
+        }
+      })
+    }
+    return entries
+  }, [quests, filters, sortField, sortDir, done])
+
+  const handleSort = (field: MapSortField) => {
+    if (sortField === field) {
+      if (sortDir === 'asc') setSortDir('desc')
+      else { setSortField(null); setSortDir('asc') }
+    } else {
+      setSortField(field)
+      setSortDir('asc')
+    }
+  }
+
+  const arrow = (field: MapSortField) => sortField === field ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''
 
   if (rows.length === 0) return <p className="empty-note">No quests match the current filters.</p>
 
@@ -32,8 +69,12 @@ export function MapsSection({ quests, filters, done, onQuestClick }: Props) {
     <table className="maps-table">
       <thead>
         <tr>
-          <th>Map</th>
-          <th className="count-col">Left</th>
+          <th className={`sortable ${sortField === 'map' ? 'sorted' : ''}`} onClick={() => handleSort('map')}>
+            Map{arrow('map')}
+          </th>
+          <th className={`count-col sortable ${sortField === 'left' ? 'sorted' : ''}`} onClick={() => handleSort('left')}>
+            Left{arrow('left')}
+          </th>
           <th>Quests</th>
         </tr>
       </thead>
@@ -63,8 +104,8 @@ export function MapsSection({ quests, filters, done, onQuestClick }: Props) {
                     <button
                       key={q.id}
                       className={`quest-chip ${done.has(q.id) ? 'done' : ''}`}
-                      title={`${q.trader} · Lv ${q.minLevel}${q.kappa ? ' · Kappa' : ''}`}
-                      onClick={() => onQuestClick(q.id)}
+                      title={`${q.trader} · Lv ${q.minLevel}${q.kappa ? ' · Kappa' : ''} — click for details`}
+                      onClick={() => onQuestClick(q)}
                     >
                       {q.name}
                     </button>

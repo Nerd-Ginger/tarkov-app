@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { FilterBar } from './components/FilterBar'
 import { MapsSection } from './components/MapsSection'
+import { QuestModal } from './components/QuestModal'
 import { QuestsTable } from './components/QuestsTable'
 import { mapSortKey, traderSortKey } from './data/normalize'
 import { EMPTY_FILTERS, matchesAll } from './filters'
 import type { Filters } from './filters'
+import type { Quest } from './types'
 import { useDone } from './hooks/useDone'
 import { useQuestData } from './hooks/useQuestData'
 
@@ -20,7 +22,7 @@ export default function App() {
   const { quests, status, offline, fetchedAt, refresh } = useQuestData()
   const { done, toggle } = useDone()
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
-  const [highlightId, setHighlightId] = useState<string | null>(null)
+  const [detailQuest, setDetailQuest] = useState<Quest | null>(null)
 
   // The Arena questline is hidden entirely until the user opts in — you have to
   // "touch Arena" to see it. Everything below is derived from this gated list.
@@ -45,15 +47,6 @@ export default function App() {
     if (filters.hideDone) list = list.filter((q) => !done.has(q.id))
     return list
   }, [visibleQuests, filters, done])
-
-  useEffect(() => {
-    if (!highlightId) return
-    document
-      .getElementById(`quest-row-${highlightId}`)
-      ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    const timer = setTimeout(() => setHighlightId(null), 1800)
-    return () => clearTimeout(timer)
-  }, [highlightId])
 
   const doneCount = useMemo(
     () => visibleQuests.filter((q) => done.has(q.id)).length,
@@ -103,7 +96,7 @@ export default function App() {
           <strong>Arena</strong> = Arena mode. <strong className="warn-text">Map unknown</strong> = tied to a place
           the data didn't name — check the wiki. <strong>No raid needed</strong> = hand-ins &amp; builds.
         </p>
-        <MapsSection quests={visibleQuests} filters={filters} done={done} onQuestClick={setHighlightId} />
+        <MapsSection quests={visibleQuests} filters={filters} done={done} onQuestClick={setDetailQuest} />
       </section>
 
       <section>
@@ -114,9 +107,16 @@ export default function App() {
           quests={filteredQuests}
           done={done}
           onToggleDone={toggle}
-          highlightId={highlightId}
+          onQuestClick={setDetailQuest}
         />
       </section>
+
+      <QuestModal
+        quest={detailQuest}
+        done={done}
+        onToggleDone={toggle}
+        onClose={() => setDetailQuest(null)}
+      />
     </div>
   )
 }
