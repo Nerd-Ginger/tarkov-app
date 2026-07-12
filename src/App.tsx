@@ -9,7 +9,7 @@ import { QuestsTable } from './components/QuestsTable'
 import { questHandInItems } from './data/items'
 import { mapSortKey, traderSortKey } from './data/normalize'
 import { exportProgress, importProgress } from './data/progressFile'
-import { EMPTY_FILTERS, matchesAll } from './filters'
+import { EMPTY_FILTERS, isBlocked, matchesAll } from './filters'
 import type { Filters } from './filters'
 import type { Quest } from './types'
 import { useDone } from './hooks/useDone'
@@ -112,6 +112,7 @@ export default function App() {
   const filteredQuests = useMemo(() => {
     let list = visibleQuests.filter((q) => matchesAll(q, filters))
     if (filters.hideDone) list = list.filter((q) => !done.has(q.id))
+    if (filters.hideBlocked) list = list.filter((q) => !isBlocked(q, done))
     return list
   }, [visibleQuests, filters, done])
 

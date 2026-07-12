@@ -182,6 +182,9 @@ export function normalizeTasks(tasks: RawTask[]): Quest[] {
       categories,
       objectives,
       requires: (t.taskRequirements ?? []).map((r) => r.task.id),
+      blockingRequires: (t.taskRequirements ?? [])
+        .filter((r) => (r.status ?? ['complete']).includes('complete'))
+        .map((r) => r.task.id),
     }
   })
 

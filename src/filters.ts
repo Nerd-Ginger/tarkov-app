@@ -6,6 +6,8 @@ export interface Filters {
   trader: string
   kappaOnly: boolean
   hideDone: boolean
+  /** Hide quests still locked behind an unfinished prerequisite. */
+  hideBlocked: boolean
   /** When false (default), Arena questline quests are hidden entirely. */
   showArena: boolean
   level: string
@@ -18,9 +20,20 @@ export const EMPTY_FILTERS: Filters = {
   trader: '',
   kappaOnly: false,
   hideDone: false,
+  hideBlocked: false,
   showArena: false,
   level: '',
   search: '',
+}
+
+/**
+ * A quest is blocked when any prerequisite it must *complete* isn't done yet.
+ * Chains resolve naturally: if A gates B gates C and A is undone, B is undone
+ * too, so C stays blocked. Quests that unlock by failing a prior quest carry
+ * no blocking prereqs, so they're never hidden this way.
+ */
+export function isBlocked(q: Quest, done: Set<string>): boolean {
+  return q.blockingRequires.some((id) => !done.has(id))
 }
 
 /** Every filter except map selection — the maps section applies this per map row. */

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Quest } from '../types'
 import { EVENT_MAPS, PSEUDO_MAPS, isPseudoMap, mapSortKey } from '../data/normalize'
-import { matchesNonMap } from '../filters'
+import { isBlocked, matchesNonMap } from '../filters'
 import type { Filters } from '../filters'
 
 type MapSortField = 'map' | 'left' | 'total'
@@ -22,6 +22,7 @@ export function MapsSection({ quests, filters, done, onQuestClick }: Props) {
     const byMap = new Map<string, Quest[]>()
     for (const q of quests) {
       if (!matchesNonMap(q, filters)) continue
+      if (filters.hideBlocked && isBlocked(q, done)) continue
       for (const m of q.maps) {
         if (filters.maps.size > 0 && !filters.maps.has(m)) continue
         let list = byMap.get(m)

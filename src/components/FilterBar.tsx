@@ -31,6 +31,7 @@ export function FilterBar({ filters, onChange, allMaps, allTraders }: Props) {
     filters.trader !== '' ||
     filters.kappaOnly ||
     filters.hideDone ||
+    filters.hideBlocked ||
     filters.showArena ||
     filters.level !== '' ||
     filters.search !== ''
@@ -118,6 +119,14 @@ export function FilterBar({ filters, onChange, allMaps, allTraders }: Props) {
           />
           Hide done
         </label>
+        <label className="check-label" title="Hide quests still locked behind a prerequisite you haven't completed.">
+          <input
+            type="checkbox"
+            checked={filters.hideBlocked}
+            onChange={(e) => onChange({ ...filters, hideBlocked: e.target.checked })}
+          />
+          Hide blocked
+        </label>
         <label className="check-label arena-toggle" title="Off by default. Flip on to reveal the Arena questline (Ref) — these require playing Arena (PvP).">
           <input
             type="checkbox"
@@ -136,6 +145,7 @@ export function FilterBar({ filters, onChange, allMaps, allTraders }: Props) {
                 trader: '',
                 kappaOnly: false,
                 hideDone: false,
+                hideBlocked: false,
                 showArena: false,
                 level: '',
                 search: '',

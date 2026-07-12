@@ -51,7 +51,14 @@ export interface Quest {
   maps: string[]
   categories: ObjectiveCategory[]
   objectives: QuestObjective[]
+  /** All prerequisite quest ids (used to draw the progression flow chart). */
   requires: string[]
+  /**
+   * Prerequisite quest ids that must be *completed* to unlock this quest. A
+   * subset of `requires` — excludes the handful of quests that unlock by
+   * *failing* a prior quest, which we can't represent and shouldn't hide.
+   */
+  blockingRequires: string[]
 }
 
 export interface RawObjective {
