@@ -20,7 +20,7 @@ function timeAgo(ts: number): string {
 
 export default function App() {
   const { quests, status, offline, fetchedAt, refresh } = useQuestData()
-  const { done, toggle } = useDone()
+  const { done, toggle, exportDone, importDone } = useDone()
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const [detailQuest, setDetailQuest] = useState<Quest | null>(null)
 
@@ -81,6 +81,8 @@ export default function App() {
               {offline && <em className="offline"> · offline, showing cached</em>}
             </span>
           )}
+          <button className="clear-btn" onClick={exportDone}>Save progress</button>
+          <button className="clear-btn" onClick={importDone}>Load progress</button>
           <button className="clear-btn" onClick={() => void refresh()}>
             Refresh data
           </button>
