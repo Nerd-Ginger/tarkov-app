@@ -86,7 +86,7 @@ export function BestQuests({ best, rewards, done, onToggleDone, onQuestClick }: 
           <p className="empty-note">Nothing left to unblock — every remaining quest is already available.</p>
         ) : (
           <div className="best-grid">
-            {best.map(({ quest: q, unblocks, unlocked }, i) => (
+            {best.map(({ quest: q, unblocks, unlocked, chainTotal }, i) => (
               <Card
                 key={q.id}
                 quest={q}
@@ -95,10 +95,11 @@ export function BestQuests({ best, rewards, done, onToggleDone, onQuestClick }: 
                   <div>
                     <button
                       className={`best-unblocks unlock-toggle ${expandedId === q.id ? 'open' : ''}`}
-                      title="Quests this directly unblocks (the next tier, not the whole chain) — click to list them"
+                      title="Next tier = quests this directly unblocks (click to list them). Chain = everything waiting further down the tree."
                       onClick={() => setExpandedId(expandedId === q.id ? null : q.id)}
                     >
-                      unblocks <strong>{unblocks}</strong> quest{unblocks === 1 ? '' : 's'}{' '}
+                      unblocks <strong>{unblocks}</strong> next{' '}
+                      <span className="chain-total">· {chainTotal} in chain</span>{' '}
                       <span className={`collapse-arrow ${expandedId === q.id ? 'open' : ''}`}>&#9654;</span>
                     </button>
                     {expandedId === q.id && (

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Ammo } from '../types'
 
-type SortField = 'name' | 'caliber' | 'damage' | 'pen' | 'armorDamage' | 'fragChance' | 'velocity'
+type SortField = 'name' | 'damage' | 'pen' | 'armorDamage' | 'fragChance' | 'velocity'
 type SortDir = 'asc' | 'desc'
 
 interface Props {
@@ -10,13 +10,14 @@ interface Props {
 
 const COLUMNS: { field: SortField; label: string; title?: string }[] = [
   { field: 'name', label: 'Round' },
-  { field: 'caliber', label: 'Caliber' },
   { field: 'damage', label: 'Dmg', title: 'Flesh damage (per pellet for shot)' },
   { field: 'pen', label: 'Pen', title: 'Penetration power' },
   { field: 'armorDamage', label: 'Armor dmg', title: 'Armor damage %' },
   { field: 'fragChance', label: 'Frag', title: 'Fragmentation chance' },
   { field: 'velocity', label: 'm/s', title: 'Muzzle velocity' },
 ]
+
+const COL_COUNT = COLUMNS.length + 6 // + C1..C6
 
 /** Pen-power tiers, roughly matching the community color coding for armor classes. */
 function penTier(pen: number): string {
@@ -49,11 +50,11 @@ export function AmmoView({ ammo }: Props) {
   const [search, setSearch] = useState('')
   const [sortField, setSortField] = useState<SortField | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
 
   const allCalibers = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const a of ammo) counts.set(a.caliber, (counts.get(a.caliber) ?? 0) + 1)
-    return [...counts.keys()].sort((a, b) => a.localeCompare(b))
+    const s = new Set(ammo.map((a) => a.caliber))
+    return [...s].sort((a, b) => a.localeCompare(b))
   }, [ammo])
 
   const toggleCaliber = (c: string) => {
@@ -65,40 +66,56 @@ export function AmmoView({ ammo }: Props) {
     })
   }
 
+  const toggleGroup = (c: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(c)) next.delete(c)
+      else next.add(c)
+      return next
+    })
+  }
+
   const handleSort = (field: SortField) => {
-    const numeric = field !== 'name' && field !== 'caliber'
+    const numeric = field !== 'name'
     if (sortField === field) {
       const first: SortDir = numeric ? 'desc' : 'asc'
       const second: SortDir = numeric ? 'asc' : 'desc'
       if (sortDir === first) setSortDir(second)
-      else {
-        setSortField(null)
-      }
+      else setSortField(null)
     } else {
       setSortField(field)
       setSortDir(numeric ? 'desc' : 'asc')
     }
   }
 
-  const rows = useMemo(() => {
+  // caliber -> rows, filtered and sorted within each group
+  const groups = useMemo(() => {
     let list = ammo
     if (calibers.size > 0) list = list.filter((a) => calibers.has(a.caliber))
     if (search) {
       const s = search.toLowerCase()
       list = list.filter((a) => a.name.toLowerCase().includes(s) || a.caliber.toLowerCase().includes(s))
     }
-    if (sortField) {
-      const m = sortDir === 'asc' ? 1 : -1
-      list = [...list].sort((a, b) => {
+    const byCaliber = new Map<string, Ammo[]>()
+    for (const a of list) {
+      let g = byCaliber.get(a.caliber)
+      if (!g) byCaliber.set(a.caliber, (g = []))
+      g.push(a)
+    }
+    const m = sortDir === 'asc' ? 1 : -1
+    for (const g of byCaliber.values()) {
+      g.sort((a, b) => {
+        if (!sortField) return b.pen - a.pen
         if (sortField === 'name') return m * a.name.localeCompare(b.name)
-        if (sortField === 'caliber') return m * a.caliber.localeCompare(b.caliber) || b.pen - a.pen
         return m * (a[sortField] - b[sortField]) || a.name.localeCompare(b.name)
       })
     }
-    return list
+    return [...byCaliber.entries()].sort((a, b) => a[0].localeCompare(b[0]))
   }, [ammo, calibers, search, sortField, sortDir])
 
   const arrow = (f: SortField) => (sortField === f ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '')
+  // searching should reveal matches even inside collapsed groups
+  const isOpen = (c: string) => search !== '' || !collapsed.has(c)
 
   return (
     <div className="ammo-view">
@@ -120,6 +137,8 @@ export function AmmoView({ ammo }: Props) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          <button className="clear-btn" onClick={() => setCollapsed(new Set())}>Expand all</button>
+          <button className="clear-btn" onClick={() => setCollapsed(new Set(allCalibers))}>Collapse all</button>
           {(calibers.size > 0 || search) && (
             <button
               className="clear-btn"
@@ -131,11 +150,11 @@ export function AmmoView({ ammo }: Props) {
               Clear
             </button>
           )}
-          <span className="flow-hint">pen color = rough armor-class tier</span>
+          <span className="flow-hint">C1–C6 = effectiveness vs armor class, 1–5</span>
         </div>
       </div>
 
-      <div className="table-wrap">
+      <div className="table-wrap ammo-scroll">
         <table className="ammo-table">
           <thead>
             <tr>
@@ -143,9 +162,7 @@ export function AmmoView({ ammo }: Props) {
                 <th
                   key={c.field}
                   title={c.title}
-                  className={`sortable ${sortField === c.field ? 'sorted' : ''} ${
-                    c.field !== 'name' && c.field !== 'caliber' ? 'num-col' : ''
-                  }`}
+                  className={`sortable ${sortField === c.field ? 'sorted' : ''} ${c.field !== 'name' ? 'num-col' : ''}`}
                   onClick={() => handleSort(c.field)}
                 >
                   {c.label}
@@ -164,32 +181,60 @@ export function AmmoView({ ammo }: Props) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((a) => (
-              <tr key={a.id}>
-                <td className="ammo-name">
-                  {a.name}
-                  {a.tracer && <span className="tracer-tag" title="Tracer round">T</span>}
-                </td>
-                <td className="ammo-caliber">{a.caliber}</td>
-                <td className="num-col">{a.damage}</td>
-                <td className={`num-col pen ${penTier(a.pen)}`}>{a.pen}</td>
-                <td className="num-col">{a.armorDamage}%</td>
-                <td className="num-col">{Math.round(a.fragChance * 100)}%</td>
-                <td className="num-col">{a.velocity || '–'}</td>
-                {ARMOR_CLASSES.map((ac) => {
-                  const r = armorRating(a.pen, ac)
-                  return (
-                    <td key={ac} className={`rate-col rate-${r}`} title={`vs class ${ac}: ${r}/5`}>
-                      {r}
-                    </td>
-                  )
-                })}
-              </tr>
+            {groups.map(([caliber, rows]) => (
+              <FragmentRows
+                key={caliber}
+                caliber={caliber}
+                rows={rows}
+                open={isOpen(caliber)}
+                onToggle={() => toggleGroup(caliber)}
+              />
             ))}
           </tbody>
         </table>
       </div>
-      {rows.length === 0 && <p className="empty-note">No rounds match.</p>}
+      {groups.length === 0 && <p className="empty-note">No rounds match.</p>}
     </div>
+  )
+}
+
+function FragmentRows({ caliber, rows, open, onToggle }: {
+  caliber: string
+  rows: Ammo[]
+  open: boolean
+  onToggle: () => void
+}) {
+  return (
+    <>
+      <tr className="caliber-row" onClick={onToggle}>
+        <td colSpan={COL_COUNT}>
+          <span className={`collapse-arrow ${open ? 'open' : ''}`}>&#9654;</span>
+          {caliber}
+          <span className="caliber-count">{rows.length} round{rows.length === 1 ? '' : 's'}</span>
+        </td>
+      </tr>
+      {open &&
+        rows.map((a) => (
+          <tr key={a.id}>
+            <td className="ammo-name">
+              {a.name}
+              {a.tracer && <span className="tracer-tag" title="Tracer round">T</span>}
+            </td>
+            <td className="num-col">{a.damage}</td>
+            <td className={`num-col pen ${penTier(a.pen)}`}>{a.pen}</td>
+            <td className="num-col">{a.armorDamage}%</td>
+            <td className="num-col">{Math.round(a.fragChance * 100)}%</td>
+            <td className="num-col">{a.velocity || '–'}</td>
+            {ARMOR_CLASSES.map((ac) => {
+              const r = armorRating(a.pen, ac)
+              return (
+                <td key={ac} className={`rate-col rate-${r}`} title={`vs class ${ac}: ${r}/5`}>
+                  {r}
+                </td>
+              )
+            })}
+          </tr>
+        ))}
+    </>
   )
 }

@@ -1224,6 +1224,49 @@ tr.done .quest-link {
   min-width: 900px;
 }
 
+/* the ammo table scrolls inside its own box so the header can stay frozen */
+.ammo-scroll {
+  max-height: 72vh;
+  overflow: auto;
+}
+
+.ammo-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  box-shadow: 0 1px 0 var(--border);
+}
+
+.caliber-row td {
+  background: var(--panel-2);
+  color: var(--accent-strong);
+  font-weight: 600;
+  font-size: 12.5px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.caliber-row:hover td {
+  color: var(--accent);
+}
+
+.caliber-row .collapse-arrow {
+  margin-right: 8px;
+}
+
+.caliber-count {
+  margin-left: 10px;
+  color: var(--text-dim);
+  font-weight: 400;
+  font-size: 11px;
+}
+
+.chain-total {
+  color: var(--text-dim);
+  font-size: 11.5px;
+}
+
 .rate-col {
   width: 30px;
   text-align: center;
