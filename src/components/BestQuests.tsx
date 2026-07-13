@@ -95,7 +95,7 @@ export function BestQuests({ best, rewards, done, onToggleDone, onQuestClick }: 
                   <div>
                     <button
                       className={`best-unblocks unlock-toggle ${expandedId === q.id ? 'open' : ''}`}
-                      title="Not-yet-done quests waiting behind this one (directly or down the chain) — click to list them"
+                      title="Quests this directly unblocks (the next tier, not the whole chain) — click to list them"
                       onClick={() => setExpandedId(expandedId === q.id ? null : q.id)}
                     >
                       unblocks <strong>{unblocks}</strong> quest{unblocks === 1 ? '' : 's'}{' '}

@@ -3,17 +3,16 @@ import { isBlocked } from '../filters'
 
 export interface BestQuest {
   quest: Quest
-  /** Not-yet-done quests transitively gated behind this one. */
+  /** Not-yet-done quests DIRECTLY gated on this one (next tier only, not the whole chain). */
   unblocks: number
-  /** The actual gated quests, sorted by trader/level/name. */
+  /** Those direct dependents, sorted by trader/level/name. */
   unlocked: Quest[]
 }
 
 /**
- * "Best Quests" = the quests you can do RIGHT NOW (not done, not locked) whose
- * completion unblocks the largest share of the remaining quest tree. Score =
- * size of the transitive dependent set over blocking-prerequisite edges,
- * counting only quests that aren't done yet.
+ * "Best Quests" = the quests you can do RIGHT NOW (not done, not locked) with
+ * the most quests waiting directly behind them — the next tier of the tree,
+ * not the full transitive chain.
  */
 export function bestQuests(quests: Quest[], done: Set<string>, topN = 5): BestQuest[] {
   const byId = new Map(quests.map((q) => [q.id, q]))
@@ -32,19 +31,9 @@ export function bestQuests(quests: Quest[], done: Set<string>, topN = 5): BestQu
   const candidates = quests.filter((q) => !done.has(q.id) && !isBlocked(q, done))
 
   const scored = candidates.map((quest) => {
-    const seen = new Set<string>()
-    const stack = [...(dependents.get(quest.id) ?? [])]
-    while (stack.length) {
-      const id = stack.pop()!
-      if (seen.has(id)) continue
-      seen.add(id)
-      const next = dependents.get(id)
-      if (next) stack.push(...next)
-    }
-    const unlocked: Quest[] = []
-    for (const id of seen) {
-      if (!done.has(id)) unlocked.push(byId.get(id)!)
-    }
+    const unlocked = (dependents.get(quest.id) ?? [])
+      .filter((id) => !done.has(id))
+      .map((id) => byId.get(id)!)
     unlocked.sort(
       (a, b) => a.trader.localeCompare(b.trader) || a.minLevel - b.minLevel || a.name.localeCompare(b.name),
     )
