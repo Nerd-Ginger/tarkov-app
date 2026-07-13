@@ -1,3 +1,8 @@
+/**
+ * Tarkov Quest Tracker
+ * Author: Nerd_Ginger — https://github.com/Nerd-Ginger/tarkov-app
+ * Quest & item data from the tarkov.dev API.
+ */
 import { useCallback, useMemo, useState } from 'react'
 import { AmmoView } from './components/AmmoView'
 import { BestQuests } from './components/BestQuests'
@@ -19,6 +24,8 @@ import { useDone } from './hooks/useDone'
 import { useHideout } from './hooks/useHideout'
 import { useInventory } from './hooks/useInventory'
 import { useQuestData } from './hooks/useQuestData'
+
+const REPO_URL = 'https://github.com/Nerd-Ginger/tarkov-app'
 
 type View = 'quests' | 'items' | 'hideout' | 'ammo'
 const VIEW_KEY = 'tarkov.view.v1'
@@ -239,12 +246,19 @@ export default function App() {
           <button className="sidebar-btn" onClick={loadProgress}>Load progress</button>
           <button className="sidebar-btn" onClick={() => void refresh()}>Refresh data</button>
         </div>
-        {fetchedAt && (
-          <div className="sidebar-footer">
-            tarkov.dev · {timeAgo(fetchedAt)}
-            {offline && <em className="offline"> · offline</em>}
-          </div>
-        )}
+        <div className="sidebar-footer">
+          {fetchedAt && (
+            <>
+              tarkov.dev · {timeAgo(fetchedAt)}
+              {offline && <em className="offline"> · offline</em>}
+              <br />
+            </>
+          )}
+          by{' '}
+          <a href={REPO_URL} target="_blank" rel="noreferrer">
+            Nerd_Ginger
+          </a>
+        </div>
       </nav>
 
       <div className="app">
@@ -416,6 +430,17 @@ export default function App() {
           onClose={() => setDetailQuest(null)}
           seriesStats={seriesStats}
         />
+
+        <footer className="app-footer">
+          Built by{' '}
+          <a href={REPO_URL} target="_blank" rel="noreferrer">
+            Nerd_Ginger
+          </a>{' '}
+          · data from tarkov.dev ·{' '}
+          <a href={REPO_URL} target="_blank" rel="noreferrer">
+            source on GitHub
+          </a>
+        </footer>
       </div>
     </div>
   )
