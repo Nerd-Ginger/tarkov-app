@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { Quest } from '../types'
 import type { BestQuest, RewardQuest } from '../data/bestQuests'
 import { EVENT_MAPS, PSEUDO_MAPS, isPseudoMap } from '../data/normalize'
@@ -75,6 +76,7 @@ function Card({ quest: q, rank, highlight, children, done, onToggleDone, onQuest
 
 export function BestQuests({ best, rewards, done, onToggleDone, onQuestClick }: Props) {
   const cardProps = { done, onToggleDone, onQuestClick }
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   return (
     <div className="best-groups">
@@ -84,17 +86,35 @@ export function BestQuests({ best, rewards, done, onToggleDone, onQuestClick }: 
           <p className="empty-note">Nothing left to unblock — every remaining quest is already available.</p>
         ) : (
           <div className="best-grid">
-            {best.map(({ quest: q, unblocks }, i) => (
+            {best.map(({ quest: q, unblocks, unlocked }, i) => (
               <Card
                 key={q.id}
                 quest={q}
                 rank={i + 1}
                 highlight={
-                  <div
-                    className="best-unblocks"
-                    title="Not-yet-done quests waiting behind this one (directly or down the chain)"
-                  >
-                    unblocks <strong>{unblocks}</strong> quest{unblocks === 1 ? '' : 's'}
+                  <div>
+                    <button
+                      className={`best-unblocks unlock-toggle ${expandedId === q.id ? 'open' : ''}`}
+                      title="Not-yet-done quests waiting behind this one (directly or down the chain) — click to list them"
+                      onClick={() => setExpandedId(expandedId === q.id ? null : q.id)}
+                    >
+                      unblocks <strong>{unblocks}</strong> quest{unblocks === 1 ? '' : 's'}{' '}
+                      <span className={`collapse-arrow ${expandedId === q.id ? 'open' : ''}`}>&#9654;</span>
+                    </button>
+                    {expandedId === q.id && (
+                      <ul className="unlock-list">
+                        {unlocked.map((u) => (
+                          <li key={u.id}>
+                            <button className="quest-chip" onClick={() => onQuestClick(u)}>
+                              {u.name}
+                            </button>
+                            <span className="unlock-meta">
+                              {u.trader} · {u.minLevel}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 }
                 {...cardProps}

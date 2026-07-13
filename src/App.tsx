@@ -149,6 +149,13 @@ export default function App() {
   const best = useMemo(() => bestQuests(visibleQuests, done), [visibleQuests, done])
   const bestRewards = useMemo(() => bestRewardQuests(visibleQuests, done), [visibleQuests, done])
 
+  // "What are we doing?" — roll a random quest from everything currently available.
+  const rollRandomQuest = useCallback(() => {
+    const available = visibleQuests.filter((q) => !done.has(q.id) && !isBlocked(q, done))
+    if (available.length === 0) return
+    setDetailQuest(available[Math.floor(Math.random() * available.length)])
+  }, [visibleQuests, done])
+
   const filterToSeries = useCallback((series: string) => {
     setFilters((f) => ({ ...f, search: series }))
     requestAnimationFrame(() => document.getElementById('by-quest')?.scrollIntoView())
@@ -298,7 +305,10 @@ export default function App() {
                 <>
                   <p className="legend">
                     The quests you can do <strong>right now</strong> that unblock the most of the remaining tree —
-                    knock these out to open up the most new missions.
+                    knock these out to open up the most new missions. Can't decide?{' '}
+                    <button className="dice-btn" onClick={rollRandomQuest} title="Roll a random quest from everything currently available">
+                      🎲 Random quest
+                    </button>
                   </p>
                   <BestQuests
                     best={best}

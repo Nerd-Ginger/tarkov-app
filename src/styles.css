@@ -1119,6 +1119,73 @@ tr.done .quest-link {
   gap: 18px;
 }
 
+.unlock-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.unlock-toggle:hover {
+  text-decoration: underline;
+}
+
+.unlock-toggle .collapse-arrow {
+  font-size: 8px;
+  margin: 0 0 0 2px;
+}
+
+.unlock-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 8px;
+  max-height: 190px;
+  overflow-y: auto;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.unlock-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.unlock-list .quest-chip {
+  background: none;
+  padding-left: 0;
+}
+
+.unlock-meta {
+  color: var(--text-dim);
+  font-size: 10.5px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.dice-btn {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12px;
+  padding: 3px 10px;
+  cursor: pointer;
+  vertical-align: 1px;
+}
+
+.dice-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
 .best-group-title {
   margin: 0 0 8px;
   font-size: 12.5px;

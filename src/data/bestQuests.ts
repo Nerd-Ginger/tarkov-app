@@ -5,6 +5,8 @@ export interface BestQuest {
   quest: Quest
   /** Not-yet-done quests transitively gated behind this one. */
   unblocks: number
+  /** The actual gated quests, sorted by trader/level/name. */
+  unlocked: Quest[]
 }
 
 /**
@@ -39,9 +41,14 @@ export function bestQuests(quests: Quest[], done: Set<string>, topN = 5): BestQu
       const next = dependents.get(id)
       if (next) stack.push(...next)
     }
-    let unblocks = 0
-    for (const id of seen) if (!done.has(id)) unblocks++
-    return { quest, unblocks }
+    const unlocked: Quest[] = []
+    for (const id of seen) {
+      if (!done.has(id)) unlocked.push(byId.get(id)!)
+    }
+    unlocked.sort(
+      (a, b) => a.trader.localeCompare(b.trader) || a.minLevel - b.minLevel || a.name.localeCompare(b.name),
+    )
+    return { quest, unblocks: unlocked.length, unlocked }
   })
 
   scored.sort(
