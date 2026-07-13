@@ -28,6 +28,22 @@ function penTier(pen: number): string {
   return 'pen-1'
 }
 
+const ARMOR_CLASSES = [1, 2, 3, 4, 5, 6] as const
+
+/**
+ * Heuristic 1–5 effectiveness vs an armor class, from pen power against the
+ * class's protection value (class × 10). 5 ≈ penetrates almost every shot,
+ * 3 ≈ works but chews durability first, 1 ≈ don't bother.
+ */
+function armorRating(pen: number, armorClass: number): number {
+  const r = pen / (armorClass * 10)
+  if (r >= 1.3) return 5
+  if (r >= 1.1) return 4
+  if (r >= 0.9) return 3
+  if (r >= 0.7) return 2
+  return 1
+}
+
 export function AmmoView({ ammo }: Props) {
   const [calibers, setCalibers] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
@@ -136,6 +152,15 @@ export function AmmoView({ ammo }: Props) {
                   {arrow(c.field)}
                 </th>
               ))}
+              {ARMOR_CLASSES.map((ac) => (
+                <th
+                  key={ac}
+                  className="rate-col"
+                  title={`Effectiveness vs class ${ac} armor — 5 penetrates nearly every shot, 1 won't get through`}
+                >
+                  C{ac}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -151,6 +176,14 @@ export function AmmoView({ ammo }: Props) {
                 <td className="num-col">{a.armorDamage}%</td>
                 <td className="num-col">{Math.round(a.fragChance * 100)}%</td>
                 <td className="num-col">{a.velocity || '–'}</td>
+                {ARMOR_CLASSES.map((ac) => {
+                  const r = armorRating(a.pen, ac)
+                  return (
+                    <td key={ac} className={`rate-col rate-${r}`} title={`vs class ${ac}: ${r}/5`}>
+                      {r}
+                    </td>
+                  )
+                })}
               </tr>
             ))}
           </tbody>

@@ -389,8 +389,11 @@ export default function App() {
           <section>
             <h2>Ammo</h2>
             <p className="legend">
-              Ballistics per round, grouped by caliber. <strong>Pen</strong> decides what armor it beats —
-              click any column to sort, filter by caliber, and hover headers for what they mean.
+              Ballistics per round, grouped by caliber. <strong>C1–C6</strong> rate effectiveness against each
+              armor class on a 1–5 scale (<strong>5</strong> = penetrates nearly every shot,{' '}
+              <strong>3</strong> = gets through after chewing durability, <strong className="warn-text">1</strong> ={' '}
+              don't bother) — estimated from pen power, so treat borderline cells as approximate. Click columns
+              to sort, filter by caliber.
             </p>
             <AmmoView ammo={ammo} />
           </section>

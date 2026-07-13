@@ -1154,8 +1154,26 @@ tr.done .quest-link {
 }
 
 .ammo-table {
-  min-width: 640px;
+  min-width: 900px;
 }
+
+.rate-col {
+  width: 30px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+th.rate-col {
+  cursor: help;
+  text-align: center;
+}
+
+.rate-1 { color: #b0554d; background: color-mix(in srgb, #b0554d 12%, transparent); }
+.rate-2 { color: #c9764a; background: color-mix(in srgb, #c9764a 10%, transparent); }
+.rate-3 { color: #d0a24e; background: color-mix(in srgb, #d0a24e 10%, transparent); }
+.rate-4 { color: #8cb46f; background: color-mix(in srgb, #8cb46f 10%, transparent); }
+.rate-5 { color: #5fc98f; background: color-mix(in srgb, #5fc98f 12%, transparent); }
 
 .ammo-name {
   white-space: nowrap;
