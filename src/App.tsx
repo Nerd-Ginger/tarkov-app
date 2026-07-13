@@ -1,4 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
+import { BestQuests } from './components/BestQuests'
+import { bestQuests } from './data/bestQuests'
 import { FilterBar } from './components/FilterBar'
 import { HideoutView } from './components/HideoutView'
 import { ItemsView } from './components/ItemsView'
@@ -49,6 +51,7 @@ export default function App() {
   const [mapsOpen, setMapsOpen] = useState(true)
   const [treeOpen, setTreeOpen] = useState(false)
   const [questsOpen, setQuestsOpen] = useState(true)
+  const [bestOpen, setBestOpen] = useState(true)
   const [view, setView] = useState<View>(readView)
 
   const switchView = (v: View) => {
@@ -141,6 +144,8 @@ export default function App() {
     return m
   }, [visibleQuests, done])
 
+  const best = useMemo(() => bestQuests(visibleQuests, done), [visibleQuests, done])
+
   const filterToSeries = useCallback((series: string) => {
     setFilters((f) => ({ ...f, search: series }))
     requestAnimationFrame(() => document.getElementById('by-quest')?.scrollIntoView())
@@ -160,8 +165,9 @@ export default function App() {
     )
   }
 
-  const openQuestSection = (section: 'filters' | 'by-map' | 'by-progression' | 'by-quest') => {
+  const openQuestSection = (section: 'filters' | 'best-quests' | 'by-map' | 'by-progression' | 'by-quest') => {
     switchView('quests')
+    if (section === 'best-quests') setBestOpen(true)
     if (section === 'by-map') setMapsOpen(true)
     if (section === 'by-progression') setTreeOpen(true)
     if (section === 'by-quest') setQuestsOpen(true)
@@ -197,6 +203,7 @@ export default function App() {
           <span className="sidebar-label">Quest sections</span>
           <ul className="sidebar-nav sub">
             <li><button className="sidebar-view-link" onClick={() => openQuestSection('filters')}>Filters</button></li>
+            <li><button className="sidebar-view-link" onClick={() => openQuestSection('best-quests')}>Best Quests</button></li>
             <li><button className="sidebar-view-link" onClick={() => openQuestSection('by-map')}>By Map</button></li>
             <li><button className="sidebar-view-link" onClick={() => openQuestSection('by-progression')}>Progression</button></li>
             <li><button className="sidebar-view-link" onClick={() => openQuestSection('by-quest')}>By Quest</button></li>
@@ -278,6 +285,22 @@ export default function App() {
             <div id="filters">
               <FilterBar filters={filters} onChange={setFilters} allMaps={allMaps} allTraders={allTraders} />
             </div>
+
+            <section id="best-quests">
+              <h2 className="collapsible" onClick={() => setBestOpen(!bestOpen)}>
+                <span className={`collapse-arrow ${bestOpen ? 'open' : ''}`}>&#9654;</span>
+                Best Quests
+              </h2>
+              {bestOpen && (
+                <>
+                  <p className="legend">
+                    The quests you can do <strong>right now</strong> that unblock the most of the remaining tree —
+                    knock these out to open up the most new missions.
+                  </p>
+                  <BestQuests best={best} done={done} onToggleDone={toggleQuest} onQuestClick={setDetailQuest} />
+                </>
+              )}
+            </section>
 
             <section id="by-map">
               <h2 className="collapsible" onClick={() => setMapsOpen(!mapsOpen)}>
