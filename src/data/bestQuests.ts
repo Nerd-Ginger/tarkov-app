@@ -13,8 +13,8 @@ export interface BestQuest {
 
 /**
  * "Best Quests" = the quests you can do RIGHT NOW (not done, not locked) with
- * the most quests waiting directly behind them. Ranked by next-tier unblocks,
- * with the full-chain total shown (and used as the tiebreaker).
+ * the most quests waiting directly behind them. Ranked solely by next-tier
+ * unblocks; the full-chain total is displayed but informational only.
  */
 export function bestQuests(quests: Quest[], done: Set<string>, topN = 5): BestQuest[] {
   const byId = new Map(quests.map((q) => [q.id, q]))
@@ -58,7 +58,6 @@ export function bestQuests(quests: Quest[], done: Set<string>, topN = 5): BestQu
   scored.sort(
     (a, b) =>
       b.unblocks - a.unblocks ||
-      b.chainTotal - a.chainTotal ||
       a.quest.minLevel - b.quest.minLevel ||
       a.quest.name.localeCompare(b.quest.name),
   )
