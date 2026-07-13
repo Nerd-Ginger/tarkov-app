@@ -24,21 +24,25 @@ import { useDone } from './hooks/useDone'
 import { useHideout } from './hooks/useHideout'
 import { useInventory } from './hooks/useInventory'
 import { useQuestData } from './hooks/useQuestData'
+import { useQuestProgress } from './hooks/useQuestProgress'
 
 const REPO_URL = 'https://github.com/Nerd-Ginger/tarkov-app'
 
-type View = 'quests' | 'items' | 'hideout' | 'ammo'
+type View = 'quests' | 'best' | 'items' | 'hideout' | 'ammo'
 const VIEW_KEY = 'tarkov.view.v1'
 const VIEWS: { id: View; label: string }[] = [
   { id: 'quests', label: 'Quests' },
+  { id: 'best', label: 'Best Quests' },
   { id: 'items', label: 'Items' },
   { id: 'hideout', label: 'Hideout' },
   { id: 'ammo', label: 'Ammo' },
 ]
 
+const OTHER_VIEWS = new Set<string>(['best', 'items', 'hideout', 'ammo'])
+
 function readView(): View {
   const v = localStorage.getItem(VIEW_KEY)
-  return v === 'items' || v === 'hideout' || v === 'ammo' ? v : 'quests'
+  return v && OTHER_VIEWS.has(v) ? (v as View) : 'quests'
 }
 
 function timeAgo(ts: number): string {
@@ -54,13 +58,13 @@ export default function App() {
   const { done, toggle, replaceDone } = useDone()
   const { inventory, setCount, applyDeltas, replaceInventory } = useInventory()
   const { built, toggleBuilt, replaceBuilt } = useHideout()
+  const { progress, setObjective, replaceProgress } = useQuestProgress()
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const [detailQuest, setDetailQuest] = useState<Quest | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mapsOpen, setMapsOpen] = useState(true)
   const [treeOpen, setTreeOpen] = useState(false)
   const [questsOpen, setQuestsOpen] = useState(true)
-  const [bestOpen, setBestOpen] = useState(true)
   const [view, setView] = useState<View>(readView)
 
   const switchView = (v: View) => {
@@ -95,12 +99,13 @@ export default function App() {
     [levelByKey, built, applyDeltas, toggleBuilt],
   )
 
-  const saveProgress = () => exportProgress(done, inventory, built)
+  const saveProgress = () => exportProgress(done, inventory, built, progress)
   const loadProgress = () =>
     importProgress((data) => {
       replaceDone(data.done)
       replaceInventory(data.inventory)
       replaceBuilt(data.hideout)
+      replaceProgress(data.questProgress)
     })
 
   // The Arena questline is hidden entirely until the user opts in — you have to
@@ -153,7 +158,7 @@ export default function App() {
     return m
   }, [visibleQuests, done])
 
-  const best = useMemo(() => bestQuests(visibleQuests, done), [visibleQuests, done])
+  const best = useMemo(() => bestQuests(visibleQuests, done, progress), [visibleQuests, done, progress])
   const bestRewards = useMemo(() => bestRewardQuests(visibleQuests, done), [visibleQuests, done])
 
   // "What are we doing?" — roll a random quest from everything currently available.
@@ -182,9 +187,8 @@ export default function App() {
     )
   }
 
-  const openQuestSection = (section: 'filters' | 'best-quests' | 'by-map' | 'by-progression' | 'by-quest') => {
+  const openQuestSection = (section: 'filters' | 'by-map' | 'by-progression' | 'by-quest') => {
     switchView('quests')
-    if (section === 'best-quests') setBestOpen(true)
     if (section === 'by-map') setMapsOpen(true)
     if (section === 'by-progression') setTreeOpen(true)
     if (section === 'by-quest') setQuestsOpen(true)
@@ -220,7 +224,6 @@ export default function App() {
           <span className="sidebar-label">Quest sections</span>
           <ul className="sidebar-nav sub">
             <li><button className="sidebar-view-link" onClick={() => openQuestSection('filters')}>Filters</button></li>
-            <li><button className="sidebar-view-link" onClick={() => openQuestSection('best-quests')}>Best Quests</button></li>
             <li><button className="sidebar-view-link" onClick={() => openQuestSection('by-map')}>By Map</button></li>
             <li><button className="sidebar-view-link" onClick={() => openQuestSection('by-progression')}>Progression</button></li>
             <li><button className="sidebar-view-link" onClick={() => openQuestSection('by-quest')}>By Quest</button></li>
@@ -304,36 +307,33 @@ export default function App() {
           </div>
         </header>
 
+        {view === 'best' && (
+          <section>
+            <h2>Best Quests</h2>
+            <p className="legend">
+              The quests you can do <strong>right now</strong>, ranked by how many missions they directly unblock.
+              Track a quest's objectives (kills, collects) and a more-complete quest wins the tie. Can't decide?{' '}
+              <button className="dice-btn" onClick={rollRandomQuest} title="Roll a random quest from everything currently available">
+                🎲 Random quest
+              </button>
+            </p>
+            <BestQuests
+              best={best}
+              rewards={bestRewards}
+              done={done}
+              onToggleDone={toggleQuest}
+              onQuestClick={setDetailQuest}
+              progress={progress}
+              onSetProgress={setObjective}
+            />
+          </section>
+        )}
+
         {view === 'quests' && (
           <>
             <div id="filters">
               <FilterBar filters={filters} onChange={setFilters} allMaps={allMaps} allTraders={allTraders} />
             </div>
-
-            <section id="best-quests">
-              <h2 className="collapsible" onClick={() => setBestOpen(!bestOpen)}>
-                <span className={`collapse-arrow ${bestOpen ? 'open' : ''}`}>&#9654;</span>
-                Best Quests
-              </h2>
-              {bestOpen && (
-                <>
-                  <p className="legend">
-                    The quests you can do <strong>right now</strong> that unblock the most of the remaining tree —
-                    knock these out to open up the most new missions. Can't decide?{' '}
-                    <button className="dice-btn" onClick={rollRandomQuest} title="Roll a random quest from everything currently available">
-                      🎲 Random quest
-                    </button>
-                  </p>
-                  <BestQuests
-                    best={best}
-                    rewards={bestRewards}
-                    done={done}
-                    onToggleDone={toggleQuest}
-                    onQuestClick={setDetailQuest}
-                  />
-                </>
-              )}
-            </section>
 
             <section id="by-map">
               <h2 className="collapsible" onClick={() => setMapsOpen(!mapsOpen)}>
@@ -429,6 +429,8 @@ export default function App() {
           onToggleDone={toggleQuest}
           onClose={() => setDetailQuest(null)}
           seriesStats={seriesStats}
+          progress={progress}
+          onSetProgress={setObjective}
         />
 
         <footer className="app-footer">

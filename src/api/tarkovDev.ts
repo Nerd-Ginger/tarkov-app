@@ -2,7 +2,7 @@ import type { RawAmmo, RawHideoutStation, RawTask } from '../types'
 import snapshot from '../data/snapshot.json'
 
 const API_URL = 'https://api.tarkov.dev/graphql'
-const CACHE_KEY = 'tarkov.tasks.v6'
+const CACHE_KEY = 'tarkov.tasks.v7'
 export const CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000 // 12h
 
 /**
@@ -25,6 +25,7 @@ const QUERY = `{
     map { name }
     taskRequirements { task { id } status }
     objectives {
+      id
       type
       description
       optional

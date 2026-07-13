@@ -22,6 +22,8 @@ export interface ItemRef {
 }
 
 export interface QuestObjective {
+  /** Stable objective id (from the API) — the key for tracked progress. */
+  id: string
   description: string
   category: ObjectiveCategory
   maps: string[]
@@ -72,6 +74,7 @@ export interface Quest {
 }
 
 export interface RawObjective {
+  id: string
   type: string
   description: string
   optional: boolean

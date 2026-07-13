@@ -1,15 +1,22 @@
 import type { Inventory } from '../hooks/useInventory'
+import type { QuestProgress } from '../hooks/useQuestProgress'
 
 export interface ProgressData {
   done: string[]
   inventory: Inventory
   hideout: string[]
+  questProgress: QuestProgress
 }
 
-/** Download the full progress state as tarkov-progress.json (version 2). */
-export function exportProgress(done: Set<string>, inventory: Inventory, hideout: Set<string>) {
+/** Download the full progress state as tarkov-progress.json (version 3). */
+export function exportProgress(
+  done: Set<string>,
+  inventory: Inventory,
+  hideout: Set<string>,
+  questProgress: QuestProgress,
+) {
   const data = JSON.stringify(
-    { version: 2, done: [...done], inventory, hideout: [...hideout] },
+    { version: 3, done: [...done], inventory, hideout: [...hideout], questProgress },
     null,
     2,
   )
@@ -45,7 +52,11 @@ export function importProgress(onLoad: (data: ProgressData) => void) {
             : {}
         const hideoutRaw: unknown[] = Array.isArray(parsed?.hideout) ? parsed.hideout : []
         const hideout = hideoutRaw.filter((k): k is string => typeof k === 'string')
-        onLoad({ done, inventory, hideout })
+        const questProgress: QuestProgress =
+          parsed && typeof parsed.questProgress === 'object' && parsed.questProgress !== null
+            ? (parsed.questProgress as QuestProgress)
+            : {}
+        onLoad({ done, inventory, hideout, questProgress })
       } catch {
         alert('Could not read that file — expected a tarkov-progress.json save.')
       }

@@ -1,5 +1,7 @@
 import type { Quest } from '../types'
 import { isBlocked } from '../filters'
+import { questProgress } from './progress'
+import type { QuestProgress } from '../hooks/useQuestProgress'
 
 export interface BestQuest {
   quest: Quest
@@ -9,14 +11,22 @@ export interface BestQuest {
   unlocked: Quest[]
   /** Not-yet-done quests anywhere down the chain behind this one. */
   chainTotal: number
+  /** 0–1 tracked completion of this quest's own objectives. */
+  progressFraction: number
 }
 
 /**
  * "Best Quests" = the quests you can do RIGHT NOW (not done, not locked) with
- * the most quests waiting directly behind them. Ranked solely by next-tier
- * unblocks; the full-chain total is displayed but informational only.
+ * the most quests waiting directly behind them. Ranked by next-tier unblocks;
+ * when the user is tracking a quest's progress, a more-complete quest wins the
+ * tie so you finish what you've started. The full-chain total is informational.
  */
-export function bestQuests(quests: Quest[], done: Set<string>, topN = 5): BestQuest[] {
+export function bestQuests(
+  quests: Quest[],
+  done: Set<string>,
+  progress: QuestProgress,
+  topN = 10,
+): BestQuest[] {
   const byId = new Map(quests.map((q) => [q.id, q]))
 
   // prereq -> direct dependents (blocking edges only, within the visible set)
@@ -52,12 +62,19 @@ export function bestQuests(quests: Quest[], done: Set<string>, topN = 5): BestQu
     let chainTotal = 0
     for (const id of seen) if (!done.has(id)) chainTotal++
 
-    return { quest, unblocks: unlocked.length, unlocked, chainTotal }
+    return {
+      quest,
+      unblocks: unlocked.length,
+      unlocked,
+      chainTotal,
+      progressFraction: questProgress(quest, progress).fraction,
+    }
   })
 
   scored.sort(
     (a, b) =>
       b.unblocks - a.unblocks ||
+      b.progressFraction - a.progressFraction ||
       a.quest.minLevel - b.quest.minLevel ||
       a.quest.name.localeCompare(b.quest.name),
   )
@@ -76,7 +93,7 @@ export interface RewardQuest {
  * "Best rewards" = the quests you can do RIGHT NOW with the biggest completion
  * payout, ranked by XP (roubles break ties). Reward items ride along for display.
  */
-export function bestRewardQuests(quests: Quest[], done: Set<string>, topN = 5): RewardQuest[] {
+export function bestRewardQuests(quests: Quest[], done: Set<string>, topN = 10): RewardQuest[] {
   const candidates = quests.filter((q) => !done.has(q.id) && !isBlocked(q, done))
   const scored = candidates.map((quest) => ({
     quest,

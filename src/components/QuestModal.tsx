@@ -1,7 +1,10 @@
 import { useEffect } from 'react'
 import type { Quest } from '../types'
 import { EVENT_MAPS, PSEUDO_MAPS, isPseudoMap } from '../data/normalize'
+import { isTrackable } from '../data/progress'
+import type { QuestProgress } from '../hooks/useQuestProgress'
 import { LightkeeperMark } from './LightkeeperMark'
+import { ObjectiveStepper } from './ObjectiveStepper'
 
 interface Props {
   quest: Quest | null
@@ -9,6 +12,8 @@ interface Props {
   onToggleDone: (id: string) => void
   onClose: () => void
   seriesStats: Map<string, { total: number; done: number }>
+  progress: QuestProgress
+  onSetProgress: (objectiveId: string, value: number) => void
 }
 
 function MapBadge({ name }: { name: string }) {
@@ -28,7 +33,7 @@ function MapBadge({ name }: { name: string }) {
   )
 }
 
-export function QuestModal({ quest, done, onToggleDone, onClose, seriesStats }: Props) {
+export function QuestModal({ quest, done, onToggleDone, onClose, seriesStats, progress, onSetProgress }: Props) {
   useEffect(() => {
     if (!quest) return
     const onKey = (e: KeyboardEvent) => {
@@ -88,6 +93,11 @@ export function QuestModal({ quest, done, onToggleDone, onClose, seriesStats }: 
                   {o.description}
                   {o.optional && <em className="optional-tag"> (optional)</em>}
                 </span>
+                {isTrackable(o) && (
+                  <div className="objective-progress">
+                    <ObjectiveStepper objective={o} value={progress[o.id] ?? 0} onChange={onSetProgress} />
+                  </div>
+                )}
                 {o.maps.length > 0 && (
                   <div className="objective-maps">
                     {o.maps.map((m) => (

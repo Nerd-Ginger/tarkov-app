@@ -2,7 +2,10 @@ import { useState } from 'react'
 import type { Quest } from '../types'
 import type { BestQuest, RewardQuest } from '../data/bestQuests'
 import { EVENT_MAPS, PSEUDO_MAPS, isPseudoMap } from '../data/normalize'
+import { isTrackable, questProgress } from '../data/progress'
+import type { QuestProgress } from '../hooks/useQuestProgress'
 import { LightkeeperMark } from './LightkeeperMark'
+import { ObjectiveStepper } from './ObjectiveStepper'
 
 interface Props {
   best: BestQuest[]
@@ -10,6 +13,8 @@ interface Props {
   done: Set<string>
   onToggleDone: (id: string) => void
   onQuestClick: (quest: Quest) => void
+  progress: QuestProgress
+  onSetProgress: (objectiveId: string, value: number) => void
 }
 
 const ROUBLES_ID = '5449016a4bdc2d6f028b456f'
@@ -74,7 +79,7 @@ function Card({ quest: q, rank, highlight, children, done, onToggleDone, onQuest
   )
 }
 
-export function BestQuests({ best, rewards, done, onToggleDone, onQuestClick }: Props) {
+export function BestQuests({ best, rewards, done, onToggleDone, onQuestClick, progress, onSetProgress }: Props) {
   const cardProps = { done, onToggleDone, onQuestClick }
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
@@ -120,6 +125,16 @@ export function BestQuests({ best, rewards, done, onToggleDone, onQuestClick }: 
                 }
                 {...cardProps}
               >
+                {(() => {
+                  const p = questProgress(q, progress)
+                  if (!p.active) return null
+                  return (
+                    <div className="best-progressbar" title={`${p.have} of ${p.target} tracked`}>
+                      <div className="best-progressbar-fill" style={{ width: `${p.fraction * 100}%` }} />
+                      <span className="best-progressbar-label">{Math.round(p.fraction * 100)}%</span>
+                    </div>
+                  )
+                })()}
                 <div className="best-section">
                   <span className="best-label">Requirements</span>
                   <ul className="best-reqs">
@@ -130,6 +145,9 @@ export function BestQuests({ best, rewards, done, onToggleDone, onQuestClick }: 
                         <li key={j}>
                           <span className={`badge cat-${o.category.replace(/[^a-zA-Z]/g, '')}`}>{o.category}</span>
                           <span className="best-req-text">{o.description}</span>
+                          {isTrackable(o) && (
+                            <ObjectiveStepper objective={o} value={progress[o.id] ?? 0} onChange={onSetProgress} />
+                          )}
                         </li>
                       ))}
                     {q.objectives.filter((o) => !o.optional).length > 4 && (

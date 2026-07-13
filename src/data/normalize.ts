@@ -158,6 +158,7 @@ export function normalizeTasks(tasks: RawTask[]): Quest[] {
   // null slots appear when a per-task resolver fails server-side — skip them
   const quests = tasks.filter((t): t is RawTask => t != null).map((t) => {
     const objectives = t.objectives.map((o) => ({
+      id: o.id,
       description: o.description,
       category: CATEGORY_BY_TYPE[o.type] ?? ('Other' as ObjectiveCategory),
       maps: [...new Set((o.maps ?? []).map((m) => normalizeMapName(m.name)))],
