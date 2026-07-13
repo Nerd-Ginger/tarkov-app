@@ -52,3 +52,26 @@ export function bestQuests(quests: Quest[], done: Set<string>, topN = 5): BestQu
   )
   return scored.slice(0, topN)
 }
+
+const ROUBLES_ID = '5449016a4bdc2d6f028b456f'
+
+export interface RewardQuest {
+  quest: Quest
+  xp: number
+  roubles: number
+}
+
+/**
+ * "Best rewards" = the quests you can do RIGHT NOW with the biggest completion
+ * payout, ranked by XP (roubles break ties). Reward items ride along for display.
+ */
+export function bestRewardQuests(quests: Quest[], done: Set<string>, topN = 5): RewardQuest[] {
+  const candidates = quests.filter((q) => !done.has(q.id) && !isBlocked(q, done))
+  const scored = candidates.map((quest) => ({
+    quest,
+    xp: quest.xp,
+    roubles: quest.rewardItems.find((r) => r.item.id === ROUBLES_ID)?.count ?? 0,
+  }))
+  scored.sort((a, b) => b.xp - a.xp || b.roubles - a.roubles || a.quest.name.localeCompare(b.quest.name))
+  return scored.slice(0, topN)
+}

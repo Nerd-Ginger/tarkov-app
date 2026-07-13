@@ -1,5 +1,5 @@
 import { ANY_MAP, ARENA, MAP_UNKNOWN, NO_RAID } from '../types'
-import type { ObjectiveCategory, Quest, RawHideoutStation, RawTask, StationLevel } from '../types'
+import type { Ammo, ObjectiveCategory, Quest, RawAmmo, RawHideoutStation, RawTask, StationLevel } from '../types'
 
 /** Map variants that are the same physical location for quest purposes. */
 const MAP_ALIASES: Record<string, string> = {
@@ -155,7 +155,8 @@ function seriesBase(name: string): string | null {
 }
 
 export function normalizeTasks(tasks: RawTask[]): Quest[] {
-  const quests = tasks.map((t) => {
+  // null slots appear when a per-task resolver fails server-side — skip them
+  const quests = tasks.filter((t): t is RawTask => t != null).map((t) => {
     const objectives = t.objectives.map((o) => ({
       description: o.description,
       category: CATEGORY_BY_TYPE[o.type] ?? ('Other' as ObjectiveCategory),
@@ -189,6 +190,12 @@ export function normalizeTasks(tasks: RawTask[]): Quest[] {
       categories,
       objectives,
       series: seriesBase(t.name),
+      xp: t.experience ?? 0,
+      rewardItems: t.finishRewards?.items ?? [],
+      rewardStanding: (t.finishRewards?.traderStanding ?? []).map((s) => ({
+        trader: s.trader.name,
+        standing: s.standing,
+      })),
       requires: (t.taskRequirements ?? []).map((r) => r.task.id),
       blockingRequires: (t.taskRequirements ?? [])
         .filter((r) => (r.status ?? ['complete']).includes('complete'))
@@ -240,4 +247,59 @@ export function normalizeStations(stations: RawHideoutStation[]): StationLevel[]
   }
   levels.sort((a, b) => a.stationName.localeCompare(b.stationName) || a.level - b.level)
   return levels
+}
+
+// ---- ammo ----
+
+/** API caliber ids → readable labels. Unknown ids fall back to the stripped raw id. */
+const CALIBER_LABELS: Record<string, string> = {
+  Caliber556x45NATO: '5.56x45 NATO',
+  Caliber545x39: '5.45x39',
+  Caliber762x39: '7.62x39',
+  Caliber762x51: '7.62x51 NATO',
+  Caliber762x54R: '7.62x54R',
+  Caliber9x19PARA: '9x19 Para',
+  Caliber9x18PM: '9x18 PM',
+  Caliber9x21: '9x21',
+  Caliber9x39: '9x39',
+  Caliber1143x23ACP: '.45 ACP',
+  Caliber46x30: '4.6x30 HK',
+  Caliber57x28: '5.7x28 FN',
+  Caliber762x25TT: '7.62x25 TT',
+  Caliber366TKM: '.366 TKM',
+  Caliber127x55: '12.7x55',
+  Caliber86x70: '.338 Lapua',
+  Caliber20g: '20/70 Gauge',
+  Caliber12g: '12/70 Gauge',
+  Caliber23x75: '23x75',
+  Caliber40x46: '40x46 Grenade',
+  Caliber26x75: '26x75 Flare',
+  Caliber40mmRU: '40mm RU Grenade',
+  Caliber68x51: '6.8x51 SIG',
+  Caliber9x33R: '.357 Magnum',
+  Caliber50BMG: '.50 BMG',
+}
+
+function caliberLabel(raw: string | null): string {
+  if (!raw) return 'Unknown'
+  return CALIBER_LABELS[raw] ?? raw.replace(/^Caliber/, '')
+}
+
+export function normalizeAmmo(ammo: RawAmmo[]): Ammo[] {
+  const rows = ammo.map((a) => ({
+    id: a.item.id,
+    name: a.item.name,
+    shortName: a.item.shortName,
+    caliber: caliberLabel(a.caliber),
+    damage: a.damage,
+    pen: a.penetrationPower,
+    armorDamage: a.armorDamage,
+    fragChance: a.fragmentationChance,
+    velocity: a.initialSpeed ?? 0,
+    accuracy: a.accuracyModifier ?? 0,
+    recoil: a.recoilModifier ?? 0,
+    tracer: a.tracer,
+  }))
+  rows.sort((a, b) => a.caliber.localeCompare(b.caliber) || b.pen - a.pen)
+  return rows
 }

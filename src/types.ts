@@ -63,6 +63,12 @@ export interface Quest {
    * *failing* a prior quest, which we can't represent and shouldn't hide.
    */
   blockingRequires: string[]
+  /** Completion XP. */
+  xp: number
+  /** Items handed out on completion (includes Roubles). */
+  rewardItems: { item: ItemRef; count: number }[]
+  /** Trader reputation gained on completion. */
+  rewardStanding: { trader: string; standing: number }[]
 }
 
 export interface RawObjective {
@@ -89,10 +95,15 @@ export interface RawTask {
   kappaRequired: boolean
   lightkeeperRequired?: boolean
   wikiLink: string
+  experience?: number
   trader: { name: string } | null
   map: { name: string } | null
   taskRequirements?: RawTaskRequirement[]
   objectives: RawObjective[]
+  finishRewards?: {
+    items: { item: ItemRef; count: number }[]
+    traderStanding: { trader: { name: string }; standing: number }[]
+  } | null
 }
 
 // ---- hideout ----
@@ -126,4 +137,35 @@ export interface StationLevel {
   stationPrereqs: { stationId: string; stationName: string; level: number }[]
   traderReqs: { trader: string; level: number }[]
   skillReqs: { name: string; level: number }[]
+}
+
+// ---- ammo ----
+
+export interface RawAmmo {
+  item: ItemRef
+  caliber: string | null
+  damage: number
+  penetrationPower: number
+  armorDamage: number
+  fragmentationChance: number
+  initialSpeed: number | null
+  accuracyModifier: number | null
+  recoilModifier: number | null
+  tracer: boolean
+}
+
+export interface Ammo {
+  id: string
+  name: string
+  shortName: string
+  /** Human-readable caliber ("5.56x45 NATO"), also the grouping key. */
+  caliber: string
+  damage: number
+  pen: number
+  armorDamage: number
+  fragChance: number
+  velocity: number
+  accuracy: number
+  recoil: number
+  tracer: boolean
 }

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
+import { AmmoView } from './components/AmmoView'
 import { BestQuests } from './components/BestQuests'
-import { bestQuests } from './data/bestQuests'
+import { bestQuests, bestRewardQuests } from './data/bestQuests'
 import { FilterBar } from './components/FilterBar'
 import { HideoutView } from './components/HideoutView'
 import { ItemsView } from './components/ItemsView'
@@ -19,17 +20,18 @@ import { useHideout } from './hooks/useHideout'
 import { useInventory } from './hooks/useInventory'
 import { useQuestData } from './hooks/useQuestData'
 
-type View = 'quests' | 'items' | 'hideout'
+type View = 'quests' | 'items' | 'hideout' | 'ammo'
 const VIEW_KEY = 'tarkov.view.v1'
 const VIEWS: { id: View; label: string }[] = [
   { id: 'quests', label: 'Quests' },
   { id: 'items', label: 'Items' },
   { id: 'hideout', label: 'Hideout' },
+  { id: 'ammo', label: 'Ammo' },
 ]
 
 function readView(): View {
   const v = localStorage.getItem(VIEW_KEY)
-  return v === 'items' || v === 'hideout' ? v : 'quests'
+  return v === 'items' || v === 'hideout' || v === 'ammo' ? v : 'quests'
 }
 
 function timeAgo(ts: number): string {
@@ -41,7 +43,7 @@ function timeAgo(ts: number): string {
 }
 
 export default function App() {
-  const { quests, stations, status, offline, fetchedAt, refresh } = useQuestData()
+  const { quests, stations, ammo, status, offline, fetchedAt, refresh } = useQuestData()
   const { done, toggle, replaceDone } = useDone()
   const { inventory, setCount, applyDeltas, replaceInventory } = useInventory()
   const { built, toggleBuilt, replaceBuilt } = useHideout()
@@ -145,6 +147,7 @@ export default function App() {
   }, [visibleQuests, done])
 
   const best = useMemo(() => bestQuests(visibleQuests, done), [visibleQuests, done])
+  const bestRewards = useMemo(() => bestRewardQuests(visibleQuests, done), [visibleQuests, done])
 
   const filterToSeries = useCallback((series: string) => {
     setFilters((f) => ({ ...f, search: series }))
@@ -297,7 +300,13 @@ export default function App() {
                     The quests you can do <strong>right now</strong> that unblock the most of the remaining tree —
                     knock these out to open up the most new missions.
                   </p>
-                  <BestQuests best={best} done={done} onToggleDone={toggleQuest} onQuestClick={setDetailQuest} />
+                  <BestQuests
+                    best={best}
+                    rewards={bestRewards}
+                    done={done}
+                    onToggleDone={toggleQuest}
+                    onQuestClick={setDetailQuest}
+                  />
                 </>
               )}
             </section>
@@ -374,6 +383,17 @@ export default function App() {
 
         {view === 'hideout' && (
           <HideoutView stations={stations} built={built} inventory={inventory} onToggleBuilt={toggleLevel} />
+        )}
+
+        {view === 'ammo' && (
+          <section>
+            <h2>Ammo</h2>
+            <p className="legend">
+              Ballistics per round, grouped by caliber. <strong>Pen</strong> decides what armor it beats —
+              click any column to sort, filter by caliber, and hover headers for what they mean.
+            </p>
+            <AmmoView ammo={ammo} />
+          </section>
         )}
 
         <QuestModal

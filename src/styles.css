@@ -1113,6 +1113,90 @@ tr.done .quest-link {
   padding-top: 8px;
 }
 
+.best-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.best-group-title {
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-dim);
+}
+
+.best-xp {
+  color: var(--kappa);
+  font-size: 12.5px;
+  cursor: help;
+}
+
+.best-xp strong {
+  font-size: 15px;
+}
+
+.best-roubles {
+  color: var(--text-dim);
+}
+
+.best-standing {
+  color: var(--cat-visit);
+}
+
+/* ---- ammo table ---- */
+
+.ammo-view {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ammo-table {
+  min-width: 640px;
+}
+
+.ammo-name {
+  white-space: nowrap;
+}
+
+.ammo-caliber {
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.num-col {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+th.num-col {
+  text-align: right;
+}
+
+.tracer-tag {
+  margin-left: 6px;
+  font-size: 9.5px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  border: 1px solid var(--cat-plant);
+  color: var(--cat-plant);
+  vertical-align: 1px;
+}
+
+.pen {
+  font-weight: 700;
+}
+
+.pen-1 { color: #b0554d; }
+.pen-2 { color: #c9764a; }
+.pen-3 { color: #d0a24e; }
+.pen-4 { color: #b9c04e; }
+.pen-5 { color: #8cb46f; }
+.pen-6 { color: #5fc98f; }
+
 /* ---- quest progression flow chart ---- */
 
 .flow-chart {
