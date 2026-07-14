@@ -1625,6 +1625,145 @@ tr.done .quest-link {
   color: var(--text-dim);
 }
 
+/* ---- item detail modal ---- */
+
+.item-prices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.item-price-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+}
+
+.ip-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.ip-val {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.fir-inline {
+  color: var(--warn);
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+/* ---- trader reset banner ---- */
+
+.reset-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.reset-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-dim);
+}
+
+.reset-chip {
+  font-size: 12px;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+
+.reset-chip strong {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.reset-chip.soon strong {
+  color: var(--cat-extract);
+}
+
+/* ---- bosses & goons ---- */
+
+.bosses-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.goon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.goon-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.goon-card.hot {
+  border-color: var(--cat-kill);
+}
+
+.goon-map {
+  font-weight: 600;
+  color: var(--accent-strong);
+}
+
+.goon-seen {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.goon-card.hot .goon-seen {
+  color: var(--cat-kill);
+}
+
+.boss-badge {
+  font-variant-numeric: tabular-nums;
+}
+
+.chance-high {
+  color: var(--cat-kill);
+  border-color: color-mix(in srgb, var(--cat-kill) 45%, transparent);
+}
+
+.chance-mid {
+  color: var(--cat-plant);
+  border-color: color-mix(in srgb, var(--cat-plant) 45%, transparent);
+}
+
+.chance-low {
+  color: var(--text-dim);
+}
+
 /* unlock-requirements checklist in the trade modal */
 
 .req-list {

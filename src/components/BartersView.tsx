@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Barter, Profile } from '../types'
+import type { Barter, Profile, TraderReset } from '../types'
 import { traderSortKey } from '../data/normalize'
 import { traderLoyalty } from '../hooks/useProfile'
+import { countdown } from '../data/timeFormat'
 import { FirBadge, TradeList } from './TradeParts'
 
 const FILTER_KEY = 'tarkov.barterFilter.v1'
@@ -10,7 +11,30 @@ interface Props {
   barters: Barter[]
   profile: Profile
   done: Set<string>
+  traderResets: TraderReset[]
   onOpen: (barter: Barter) => void
+}
+
+function ResetBanner({ resets }: { resets: TraderReset[] }) {
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 30_000)
+    return () => clearInterval(t)
+  }, [])
+  if (resets.length === 0) return null
+  return (
+    <div className="reset-banner">
+      <span className="reset-label">Trader restock</span>
+      {resets.map((r) => {
+        const soon = r.resetAt - Date.now() < 30 * 60 * 1000
+        return (
+          <span key={r.name} className={`reset-chip ${soon ? 'soon' : ''}`}>
+            {r.name} <strong>{countdown(r.resetAt)}</strong>
+          </span>
+        )
+      })}
+    </div>
+  )
 }
 
 function matches(b: Barter, s: string): boolean {
@@ -21,7 +45,7 @@ function matches(b: Barter, s: string): boolean {
   )
 }
 
-export function BartersView({ barters, profile, done, onOpen }: Props) {
+export function BartersView({ barters, profile, done, traderResets, onOpen }: Props) {
   const [search, setSearch] = useState('')
   const [firOnly, setFirOnly] = useState(false)
   const [canBuyOnly, setCanBuyOnly] = useState(() => localStorage.getItem(FILTER_KEY) === '1')
@@ -76,6 +100,7 @@ export function BartersView({ barters, profile, done, onOpen }: Props) {
 
   return (
     <div className="trade-view">
+      <ResetBanner resets={traderResets} />
       <div className="filter-bar">
         <div className="filter-row controls">
           <input

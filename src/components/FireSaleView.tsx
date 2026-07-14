@@ -1,10 +1,15 @@
 import { useMemo, useState } from 'react'
-import type { PriceRow } from '../types'
+import type { ItemRef, PriceRow } from '../types'
 
 const ROW_CAP = 400
 
-type SortField = 'name' | 'flea' | 'change' | 'trader'
+type SortField = 'name' | 'flea' | 'change' | 'trader' | 'perSlot'
 type SortDir = 'asc' | 'desc'
+
+/** Best obtainable sell price per grid slot — the loot-priority signal. */
+function perSlot(p: { flea: number | null; trader: number; slots: number }): number {
+  return Math.max(p.flea ?? 0, p.trader) / p.slots
+}
 
 interface Props {
   rows: PriceRow[]
@@ -12,6 +17,7 @@ interface Props {
   loading: boolean
   offline: boolean
   onRefresh: () => void
+  onItemClick: (item: ItemRef) => void
 }
 
 const MIN_PRICE_OPTIONS = [
@@ -37,11 +43,11 @@ function traderLabel(source: string): string {
   return source ? source.charAt(0).toUpperCase() + source.slice(1) : ''
 }
 
-export function FireSaleView({ rows, fetchedAt, loading, offline, onRefresh }: Props) {
+export function FireSaleView({ rows, fetchedAt, loading, offline, onRefresh, onItemClick }: Props) {
   const [search, setSearch] = useState('')
   const [bannedOnly, setBannedOnly] = useState(false)
   const [minPrice, setMinPrice] = useState(10_000)
-  const [sortField, setSortField] = useState<SortField>('flea')
+  const [sortField, setSortField] = useState<SortField>('perSlot')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
   const handleSort = (field: SortField) => {
@@ -72,6 +78,8 @@ export function FireSaleView({ rows, fetchedAt, loading, offline, onRefresh }: P
           return m * ((a.change48h ?? -Infinity) - (b.change48h ?? -Infinity)) || a.name.localeCompare(b.name)
         case 'trader':
           return m * (a.trader - b.trader) || a.name.localeCompare(b.name)
+        case 'perSlot':
+          return m * (perSlot(a) - perSlot(b)) || a.name.localeCompare(b.name)
       }
     })
     return { visible: sorted.slice(0, ROW_CAP), total: sorted.length }
@@ -157,6 +165,13 @@ export function FireSaleView({ rows, fetchedAt, loading, offline, onRefresh }: P
               >
                 Trader{arrow('trader')}
               </th>
+              <th
+                className={`sortable num-col ${sortField === 'perSlot' ? 'sorted' : ''}`}
+                onClick={() => handleSort('perSlot')}
+                title="Best sell price ÷ grid slots — the loot-priority metric"
+              >
+                ₽/slot{arrow('perSlot')}
+              </th>
               <th title="Who pays more for this item">Sell to</th>
             </tr>
           </thead>
@@ -166,7 +181,13 @@ export function FireSaleView({ rows, fetchedAt, loading, offline, onRefresh }: P
               return (
                 <tr key={p.id}>
                   <td className={p.noFlea ? 'no-flea' : ''}>
-                    {p.name}
+                    <button
+                      className="quest-link"
+                      onClick={() => onItemClick({ id: p.id, name: p.name, shortName: p.shortName })}
+                      title="Item details"
+                    >
+                      {p.name}
+                    </button>
                     {p.noFlea && <span className="no-flea-mark">✱</span>}
                   </td>
                   <td className="num-col">{rub(p.flea)}</td>
@@ -183,6 +204,10 @@ export function FireSaleView({ rows, fetchedAt, loading, offline, onRefresh }: P
                     ) : (
                       '—'
                     )}
+                  </td>
+                  <td className="num-col flea-price">
+                    {perSlot(p) > 0 ? rub(perSlot(p)) : '—'}
+                    {p.slots > 1 && <span className="trader-src"> ({p.slots})</span>}
                   </td>
                   <td>
                     {p.flea === null && p.trader === 0 ? (

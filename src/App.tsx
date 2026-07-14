@@ -5,7 +5,9 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AmmoView } from './components/AmmoView'
+import { BossesView } from './components/BossesView'
 import { FireSaleView } from './components/FireSaleView'
+import { ItemModal } from './components/ItemModal'
 import { BartersView } from './components/BartersView'
 import { BestQuests } from './components/BestQuests'
 import { CraftsView } from './components/CraftsView'
@@ -25,19 +27,31 @@ import { mapSortKey, stationLevelKey, traderSortKey } from './data/normalize'
 import { exportProgress, importProgress } from './data/progressFile'
 import { EMPTY_FILTERS, isBlocked, matchesAll } from './filters'
 import type { Filters } from './filters'
-import type { Barter, Craft, Quest } from './types'
+import type { Barter, Craft, ItemRef, Quest } from './types'
 import { useActive } from './hooks/useActive'
 import { useDone } from './hooks/useDone'
 import { useHideout } from './hooks/useHideout'
 import { useInventory } from './hooks/useInventory'
+import { useIntel } from './hooks/useIntel'
 import { usePrices } from './hooks/usePrices'
 import { useProfile } from './hooks/useProfile'
+import { buildItemUsage } from './data/itemUsage'
 import { useQuestData } from './hooks/useQuestData'
 import { useQuestProgress } from './hooks/useQuestProgress'
 
 const REPO_URL = 'https://github.com/Nerd-Ginger/tarkov-app'
 
-type View = 'quests' | 'best' | 'items' | 'hideout' | 'barters' | 'crafts' | 'firesale' | 'ammo' | 'profile'
+type View =
+  | 'quests'
+  | 'best'
+  | 'items'
+  | 'hideout'
+  | 'barters'
+  | 'crafts'
+  | 'firesale'
+  | 'bosses'
+  | 'ammo'
+  | 'profile'
 const VIEW_KEY = 'tarkov.view.v1'
 const VIEWS: { id: View; label: string }[] = [
   { id: 'quests', label: 'Quests' },
@@ -47,14 +61,27 @@ const VIEWS: { id: View; label: string }[] = [
   { id: 'barters', label: 'Barter' },
   { id: 'crafts', label: 'Crafts' },
   { id: 'firesale', label: 'Fire Sale' },
+  { id: 'bosses', label: 'Bosses' },
   { id: 'ammo', label: 'Ammo' },
   { id: 'profile', label: 'Profile' },
 ]
 
-const OTHER_VIEWS = new Set<string>(['best', 'items', 'hideout', 'barters', 'crafts', 'firesale', 'ammo', 'profile'])
+const OTHER_VIEWS = new Set<string>([
+  'best',
+  'items',
+  'hideout',
+  'barters',
+  'crafts',
+  'firesale',
+  'bosses',
+  'ammo',
+  'profile',
+])
 
 /** Views that show flea prices — visiting one triggers the lazy price fetch. */
 const PRICE_VIEWS = new Set<View>(['items', 'barters', 'crafts', 'firesale'])
+/** Views that need trader-reset / goon / boss intel. */
+const INTEL_VIEWS = new Set<View>(['barters', 'bosses'])
 
 function readView(): View {
   const v = localStorage.getItem(VIEW_KEY)
@@ -86,9 +113,18 @@ export default function App() {
     ensureFresh: ensureFreshPrices,
     refresh: refreshPrices,
   } = usePrices()
+  const {
+    intel,
+    fetchedAt: intelFetchedAt,
+    loading: intelLoading,
+    offline: intelOffline,
+    ensureFresh: ensureFreshIntel,
+    refresh: refreshIntel,
+  } = useIntel()
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const [detailQuest, setDetailQuest] = useState<Quest | null>(null)
   const [tradeModal, setTradeModal] = useState<TradeModalData | null>(null)
+  const [itemModal, setItemModal] = useState<ItemRef | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mapsOpen, setMapsOpen] = useState(true)
   const [treeOpen, setTreeOpen] = useState(false)
@@ -107,7 +143,8 @@ export default function App() {
   // Prices load lazily: only once a price-showing view is opened, then hourly.
   useEffect(() => {
     if (PRICE_VIEWS.has(view)) ensureFreshPrices()
-  }, [view, ensureFreshPrices])
+    if (INTEL_VIEWS.has(view)) ensureFreshIntel()
+  }, [view, ensureFreshPrices, ensureFreshIntel])
 
   const questById = useMemo(() => new Map(quests.map((q) => [q.id, q])), [quests])
   const levelByKey = useMemo(() => new Map(stations.map((l) => [l.key, l])), [stations])
@@ -187,6 +224,31 @@ export default function App() {
         stationLevel: levelByKey.get(stationLevelKey(craft.stationId, craft.level)),
       }),
     [levelByKey],
+  )
+
+  // Reverse index: item id → every quest/hideout/barter/craft that touches it.
+  const itemUsage = useMemo(
+    () => buildItemUsage(quests, stations, barters, crafts),
+    [quests, stations, barters, crafts],
+  )
+  // Item modal cross-navigation closes itself then opens the target.
+  const itemToQuest = useCallback((q: Quest) => {
+    setItemModal(null)
+    setDetailQuest(q)
+  }, [])
+  const itemToBarter = useCallback(
+    (b: Barter) => {
+      setItemModal(null)
+      openBarter(b)
+    },
+    [openBarter],
+  )
+  const itemToCraft = useCallback(
+    (c: Craft) => {
+      setItemModal(null)
+      openCraft(c)
+    },
+    [openCraft],
   )
 
   // The Arena questline is hidden entirely until the user opts in — you have to
@@ -485,6 +547,7 @@ export default function App() {
               prices={pricesById}
               onSetCount={setCount}
               onQuestClick={setDetailQuest}
+              onItemClick={setItemModal}
             />
           </section>
         )}
@@ -501,7 +564,13 @@ export default function App() {
               same thing. <strong className="warn-text">FIR</strong> = the barter needs items banned from the flea
               market, so you'll have to find them in raid.
             </p>
-            <BartersView barters={barters} profile={profile} done={done} onOpen={openBarter} />
+            <BartersView
+              barters={barters}
+              profile={profile}
+              done={done}
+              traderResets={intel.traderResets}
+              onOpen={openBarter}
+            />
           </section>
         )}
 
@@ -547,6 +616,23 @@ export default function App() {
               loading={pricesLoading}
               offline={pricesOffline}
               onRefresh={() => void refreshPrices()}
+              onItemClick={setItemModal}
+            />
+          </section>
+        )}
+
+        {view === 'bosses' && (
+          <section>
+            <h2>Bosses &amp; Goons</h2>
+            <p className="legend">
+              Live boss spawn odds and community Goon sightings from tarkov.dev (refreshed ~10 min when online).
+            </p>
+            <BossesView
+              intel={intel}
+              fetchedAt={intelFetchedAt}
+              loading={intelLoading}
+              offline={intelOffline}
+              onRefresh={() => void refreshIntel()}
             />
           </section>
         )}
@@ -584,6 +670,16 @@ export default function App() {
           built={built}
           prices={pricesById}
           onClose={() => setTradeModal(null)}
+        />
+
+        <ItemModal
+          item={itemModal}
+          price={itemModal ? pricesById.get(itemModal.id) : undefined}
+          usage={itemModal ? itemUsage.get(itemModal.id) : undefined}
+          onClose={() => setItemModal(null)}
+          onQuestClick={itemToQuest}
+          onBarterClick={itemToBarter}
+          onCraftClick={itemToCraft}
         />
 
         <footer className="app-footer">

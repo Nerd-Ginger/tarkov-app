@@ -247,6 +247,33 @@ export interface PriceRow {
   trader: number
   traderName: string
   noFlea: boolean
+  /** Grid slots (width × height), min 1 — for price-per-slot. */
+  slots: number
+}
+
+// ---- intel (trader resets, goons, boss spawns) ----
+
+export interface TraderReset {
+  name: string
+  /** Next restock time in ms epoch. */
+  resetAt: number
+}
+
+export interface GoonReport {
+  map: string
+  /** Last-seen time in ms epoch. */
+  seenAt: number
+}
+
+export interface MapBosses {
+  map: string
+  bosses: { name: string; chance: number }[]
+}
+
+export interface Intel {
+  traderResets: TraderReset[]
+  goonReports: GoonReport[]
+  bossSpawns: MapBosses[]
 }
 
 // ---- profile ----

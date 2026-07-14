@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import type { PriceRow, Quest, StationLevel } from '../types'
+import type { ItemRef, PriceRow, Quest, StationLevel } from '../types'
 import type { Inventory } from '../hooks/useInventory'
 import { aggregateNeeds } from '../data/items'
 import type { ItemNeed } from '../data/items'
@@ -25,9 +25,10 @@ interface Props {
   prices: Map<string, PriceRow>
   onSetCount: (itemId: string, count: number) => void
   onQuestClick: (q: Quest) => void
+  onItemClick: (item: ItemRef) => void
 }
 
-export function ItemsView({ quests, done, stations, built, inventory, prices, onSetCount, onQuestClick }: Props) {
+export function ItemsView({ quests, done, stations, built, inventory, prices, onSetCount, onQuestClick, onItemClick }: Props) {
   const [source, setSource] = useState<Source>('all')
   const [search, setSearch] = useState('')
   const [hideCovered, setHideCovered] = useState(false)
@@ -148,8 +149,10 @@ export function ItemsView({ quests, done, stations, built, inventory, prices, on
                 const fir = source === 'hideout' ? 0 : n.questFirCount
                 return (
                   <tr key={n.item.id} className={short === 0 ? 'covered' : ''}>
-                    <td className="item-name" title={n.item.name}>
-                      {n.item.name}
+                    <td className="item-name">
+                      <button className="quest-link" onClick={() => onItemClick(n.item)} title="Item details">
+                        {n.item.name}
+                      </button>
                     </td>
                     <td className="count-col">
                       <span className="count">{fmt(needed)}</span>

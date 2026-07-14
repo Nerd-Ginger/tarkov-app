@@ -12,6 +12,8 @@ const PRICES_QUERY = `{
     id
     name
     shortName
+    width
+    height
     avg24hPrice
     lastLowPrice
     changeLast48hPercent
@@ -24,6 +26,8 @@ interface RawPriceItem {
   id: string
   name: string
   shortName: string
+  width: number | null
+  height: number | null
   avg24hPrice: number | null
   lastLowPrice: number | null
   changeLast48hPercent: number | null
@@ -57,6 +61,7 @@ function writePricesCache(cache: PricesCache) {
 }
 
 function trim(raw: RawPriceItem): PriceRow {
+  const slots = Math.max(1, (raw.width ?? 1) * (raw.height ?? 1))
   // Roubles: the currency itself is trivially worth face value
   if (raw.id === ROUBLES_ID) {
     return {
@@ -69,6 +74,7 @@ function trim(raw: RawPriceItem): PriceRow {
       trader: 1,
       traderName: '',
       noFlea: true,
+      slots: 1,
     }
   }
   let trader = 0
@@ -90,6 +96,7 @@ function trim(raw: RawPriceItem): PriceRow {
     trader,
     traderName,
     noFlea: (raw.types ?? []).includes('noFlea'),
+    slots,
   }
 }
 
