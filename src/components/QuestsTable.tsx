@@ -28,6 +28,7 @@ function comparator(field: SortField, dir: SortDir) {
 interface Props {
   quests: Quest[]
   done: Set<string>
+  active: Set<string>
   onToggleDone: (id: string) => void
   onQuestClick: (quest: Quest) => void
   seriesStats: Map<string, { total: number; done: number }>
@@ -46,7 +47,7 @@ function SortHeader({ label, field, active, dir, onSort, className }: {
   )
 }
 
-export function QuestsTable({ quests, done, onToggleDone, onQuestClick, seriesStats, onSeriesClick }: Props) {
+export function QuestsTable({ quests, done, active, onToggleDone, onQuestClick, seriesStats, onSeriesClick }: Props) {
   const [sortField, setSortField] = useState<SortField | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>('asc')
 
@@ -99,6 +100,9 @@ export function QuestsTable({ quests, done, onToggleDone, onQuestClick, seriesSt
                 <button className="quest-link" onClick={() => onQuestClick(q)} title="Click for details">
                   {q.name}
                 </button>
+                {active.has(q.id) && (
+                  <span className="active-badge" title="You're currently on this quest">▶ Active</span>
+                )}
                 {q.series && seriesStats.has(q.series) && (
                   <button
                     className="series-badge"

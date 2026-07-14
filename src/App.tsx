@@ -5,7 +5,9 @@
  */
 import { useCallback, useMemo, useState } from 'react'
 import { AmmoView } from './components/AmmoView'
+import { BartersView } from './components/BartersView'
 import { BestQuests } from './components/BestQuests'
+import { CraftsView } from './components/CraftsView'
 import { bestQuests, bestRewardQuests } from './data/bestQuests'
 import { FilterBar } from './components/FilterBar'
 import { HideoutView } from './components/HideoutView'
@@ -20,6 +22,7 @@ import { exportProgress, importProgress } from './data/progressFile'
 import { EMPTY_FILTERS, isBlocked, matchesAll } from './filters'
 import type { Filters } from './filters'
 import type { Quest } from './types'
+import { useActive } from './hooks/useActive'
 import { useDone } from './hooks/useDone'
 import { useHideout } from './hooks/useHideout'
 import { useInventory } from './hooks/useInventory'
@@ -28,17 +31,19 @@ import { useQuestProgress } from './hooks/useQuestProgress'
 
 const REPO_URL = 'https://github.com/Nerd-Ginger/tarkov-app'
 
-type View = 'quests' | 'best' | 'items' | 'hideout' | 'ammo'
+type View = 'quests' | 'best' | 'items' | 'hideout' | 'barters' | 'crafts' | 'ammo'
 const VIEW_KEY = 'tarkov.view.v1'
 const VIEWS: { id: View; label: string }[] = [
   { id: 'quests', label: 'Quests' },
   { id: 'best', label: 'Best Quests' },
   { id: 'items', label: 'Items' },
   { id: 'hideout', label: 'Hideout' },
+  { id: 'barters', label: 'Barter' },
+  { id: 'crafts', label: 'Crafts' },
   { id: 'ammo', label: 'Ammo' },
 ]
 
-const OTHER_VIEWS = new Set<string>(['best', 'items', 'hideout', 'ammo'])
+const OTHER_VIEWS = new Set<string>(['best', 'items', 'hideout', 'barters', 'crafts', 'ammo'])
 
 function readView(): View {
   const v = localStorage.getItem(VIEW_KEY)
@@ -54,11 +59,12 @@ function timeAgo(ts: number): string {
 }
 
 export default function App() {
-  const { quests, stations, ammo, status, offline, fetchedAt, refresh } = useQuestData()
+  const { quests, stations, ammo, barters, crafts, status, offline, fetchedAt, refresh } = useQuestData()
   const { done, toggle, replaceDone } = useDone()
   const { inventory, setCount, applyDeltas, replaceInventory } = useInventory()
   const { built, toggleBuilt, replaceBuilt } = useHideout()
   const { progress, setObjective, replaceProgress } = useQuestProgress()
+  const { active, toggleActive, clearActive, replaceActive } = useActive()
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const [detailQuest, setDetailQuest] = useState<Quest | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -85,9 +91,38 @@ export default function App() {
     (id: string) => {
       const q = questById.get(id)
       if (q) applyDeltas(questHandInItems(q), done.has(id) ? 1 : -1)
+      // finishing an active quest ends its active status
+      if (!done.has(id)) clearActive(id)
       toggle(id)
     },
-    [questById, done, applyDeltas, toggle],
+    [questById, done, applyDeltas, toggle, clearActive],
+  )
+
+  /**
+   * "Active" = currently running this quest in game — which means everything
+   * before it must already be complete. Activating marks the whole prerequisite
+   * chain done in one shot (catch-up sync; deliberately NO inventory math —
+   * that behavior belongs to manual checkmarks). Toggling off just clears the flag.
+   */
+  const activateQuest = useCallback(
+    (id: string) => {
+      if (!active.has(id)) {
+        const ancestors = new Set<string>()
+        const stack = [...(questById.get(id)?.blockingRequires ?? [])]
+        while (stack.length) {
+          const pid = stack.pop()!
+          if (ancestors.has(pid)) continue
+          const pq = questById.get(pid)
+          if (!pq) continue
+          ancestors.add(pid)
+          stack.push(...pq.blockingRequires)
+        }
+        const newlyDone = [...ancestors].filter((pid) => !done.has(pid))
+        if (newlyDone.length > 0) replaceDone([...done, ...newlyDone])
+      }
+      toggleActive(id)
+    },
+    [active, questById, done, replaceDone, toggleActive],
   )
 
   const toggleLevel = useCallback(
@@ -99,13 +134,14 @@ export default function App() {
     [levelByKey, built, applyDeltas, toggleBuilt],
   )
 
-  const saveProgress = () => exportProgress(done, inventory, built, progress)
+  const saveProgress = () => exportProgress(done, inventory, built, progress, active)
   const loadProgress = () =>
     importProgress((data) => {
       replaceDone(data.done)
       replaceInventory(data.inventory)
       replaceBuilt(data.hideout)
       replaceProgress(data.questProgress)
+      replaceActive(data.active)
     })
 
   // The Arena questline is hidden entirely until the user opts in — you have to
@@ -325,6 +361,7 @@ export default function App() {
               onQuestClick={setDetailQuest}
               progress={progress}
               onSetProgress={setObjective}
+              active={active}
             />
           </section>
         )}
@@ -376,6 +413,7 @@ export default function App() {
                 <QuestsTable
                   quests={filteredQuests}
                   done={done}
+                  active={active}
                   onToggleDone={toggleQuest}
                   onQuestClick={setDetailQuest}
                   seriesStats={seriesStats}
@@ -409,6 +447,30 @@ export default function App() {
           <HideoutView stations={stations} built={built} inventory={inventory} onToggleBuilt={toggleLevel} />
         )}
 
+        {view === 'barters' && (
+          <section>
+            <h2>Barter</h2>
+            <p className="legend">
+              Every trader barter, bucketed by trader. The search covers all traders at once — several sell the
+              same thing. <strong className="warn-text">FIR</strong> = the barter needs items banned from the flea
+              market, so you'll have to find them in raid.
+            </p>
+            <BartersView barters={barters} />
+          </section>
+        )}
+
+        {view === 'crafts' && (
+          <section>
+            <h2>Crafts</h2>
+            <p className="legend">
+              Every hideout craft, bucketed by station. The search covers all stations at once.{' '}
+              <strong className="warn-text">FIR</strong> = the craft needs flea-banned items — find them in raid.
+              Flip <strong>Hideout tracking</strong> to hide recipes your tracked hideout can't make yet.
+            </p>
+            <CraftsView crafts={crafts} built={built} />
+          </section>
+        )}
+
         {view === 'ammo' && (
           <section>
             <h2>Ammo</h2>
@@ -431,6 +493,8 @@ export default function App() {
           seriesStats={seriesStats}
           progress={progress}
           onSetProgress={setObjective}
+          active={active}
+          onToggleActive={activateQuest}
         />
 
         <footer className="app-footer">

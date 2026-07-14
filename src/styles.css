@@ -1346,16 +1346,121 @@ tr.done .quest-link {
 }
 
 /* the ammo table scrolls inside its own box so the header can stay frozen */
-.ammo-scroll {
+.ammo-scroll,
+.trade-scroll {
   max-height: 72vh;
   overflow: auto;
 }
 
-.ammo-scroll thead th {
+.ammo-scroll thead th,
+.trade-scroll thead th {
   position: sticky;
   top: 0;
   z-index: 3;
   box-shadow: 0 1px 0 var(--border);
+}
+
+/* ---- active quests ---- */
+
+.active-badge {
+  display: inline-block;
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--cat-extract);
+  color: var(--cat-extract);
+  white-space: nowrap;
+}
+
+.best-head .active-badge {
+  margin-top: 0;
+}
+
+.best-card.is-active {
+  border-color: color-mix(in srgb, var(--cat-extract) 55%, var(--border));
+}
+
+.active-toggle {
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.active-toggle.on,
+.active-toggle:has(input:checked) {
+  border-color: var(--cat-extract);
+  color: var(--cat-extract);
+}
+
+.active-toggle input {
+  accent-color: var(--cat-extract);
+}
+
+/* ---- barters & crafts ---- */
+
+.trade-view {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.trade-table {
+  min-width: 760px;
+}
+
+.trade-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12.5px;
+}
+
+.trade-count {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.trade-reward .trade-items {
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.trade-items li.no-flea {
+  color: var(--warn);
+}
+
+.no-flea-mark {
+  color: var(--warn);
+  margin-left: 3px;
+  font-size: 10px;
+}
+
+.trade-unlock {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.fir-col {
+  width: 1%;
+  text-align: center;
+}
+
+.fir-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 1.5px 6px;
+  border-radius: 4px;
+  border: 1px dashed color-mix(in srgb, var(--warn) 60%, transparent);
+  color: var(--warn);
+  cursor: help;
 }
 
 .caliber-row td {

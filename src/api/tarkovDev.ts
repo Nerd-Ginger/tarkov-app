@@ -1,8 +1,8 @@
-import type { RawAmmo, RawHideoutStation, RawTask } from '../types'
+import type { RawAmmo, RawBarter, RawCraft, RawHideoutStation, RawTask } from '../types'
 import snapshot from '../data/snapshot.json'
 
 const API_URL = 'https://api.tarkov.dev/graphql'
-const CACHE_KEY = 'tarkov.tasks.v7'
+const CACHE_KEY = 'tarkov.tasks.v8'
 export const CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000 // 12h
 
 /**
@@ -64,6 +64,22 @@ const QUERY = `{
       skillRequirements { name level }
     }
   }
+  barters(gameMode: pve) {
+    id
+    trader { name }
+    level
+    taskUnlock { id name }
+    requiredItems { item { id name shortName types } count }
+    rewardItems { item { id name shortName } count }
+  }
+  crafts(gameMode: pve) {
+    id
+    station { id name }
+    level
+    duration
+    requiredItems { item { id name shortName types } count }
+    rewardItems { item { id name shortName } count }
+  }
 }`
 
 export interface TaskCache {
@@ -71,6 +87,8 @@ export interface TaskCache {
   tasks: RawTask[]
   stations: RawHideoutStation[]
   ammo: RawAmmo[]
+  barters: RawBarter[]
+  crafts: RawCraft[]
 }
 
 export function readCache(): TaskCache | null {
@@ -79,8 +97,9 @@ export function readCache(): TaskCache | null {
     if (!raw) return null
     const parsed = JSON.parse(raw) as TaskCache
     if (!Array.isArray(parsed.tasks) || parsed.tasks.length === 0) return null
-    // a cache missing stations or ammo is from an incomplete fetch — refetch instead
+    // a cache missing any dataset is from an incomplete fetch — refetch instead
     if (!Array.isArray(parsed.stations) || !Array.isArray(parsed.ammo)) return null
+    if (!Array.isArray(parsed.barters) || !Array.isArray(parsed.crafts)) return null
     return parsed
   } catch {
     return null
@@ -107,6 +126,8 @@ export async function fetchTasks(): Promise<TaskCache> {
   const tasks: RawTask[] = (json?.data?.tasks ?? []).filter(Boolean)
   const stations: RawHideoutStation[] = json?.data?.hideoutStations ?? []
   const ammo: RawAmmo[] = (json?.data?.ammo ?? []).filter(Boolean)
+  const barters: RawBarter[] = (json?.data?.barters ?? []).filter(Boolean)
+  const crafts: RawCraft[] = (json?.data?.crafts ?? []).filter(Boolean)
   if (tasks.length === 0) throw new Error('tarkov.dev API returned no tasks')
   // merge XP in from the aliased selection (null rows = XP unknown, keep quest)
   const xpById = new Map<string, number>()
@@ -114,7 +135,7 @@ export async function fetchTasks(): Promise<TaskCache> {
     if (row) xpById.set(row.id, row.experience)
   }
   for (const t of tasks) t.experience = xpById.get(t.id) ?? 0
-  const cache = { fetchedAt: Date.now(), tasks, stations, ammo }
+  const cache = { fetchedAt: Date.now(), tasks, stations, ammo, barters, crafts }
   writeCache(cache)
   return cache
 }

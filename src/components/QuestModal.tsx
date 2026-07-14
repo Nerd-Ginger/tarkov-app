@@ -14,6 +14,8 @@ interface Props {
   seriesStats: Map<string, { total: number; done: number }>
   progress: QuestProgress
   onSetProgress: (objectiveId: string, value: number) => void
+  active: Set<string>
+  onToggleActive: (id: string) => void
 }
 
 function MapBadge({ name }: { name: string }) {
@@ -33,7 +35,17 @@ function MapBadge({ name }: { name: string }) {
   )
 }
 
-export function QuestModal({ quest, done, onToggleDone, onClose, seriesStats, progress, onSetProgress }: Props) {
+export function QuestModal({
+  quest,
+  done,
+  onToggleDone,
+  onClose,
+  seriesStats,
+  progress,
+  onSetProgress,
+  active,
+  onToggleActive,
+}: Props) {
   useEffect(() => {
     if (!quest) return
     const onKey = (e: KeyboardEvent) => {
@@ -115,6 +127,15 @@ export function QuestModal({ quest, done, onToggleDone, onClose, seriesStats, pr
             <input type="checkbox" checked={isDone} onChange={() => onToggleDone(quest.id)} />
             Mark done
           </label>
+          {!isDone && (
+            <label
+              className={`check-label active-toggle ${active.has(quest.id) ? 'on' : ''}`}
+              title="Mark this as the quest you're currently on — every prerequisite before it gets marked done automatically (inventory untouched)."
+            >
+              <input type="checkbox" checked={active.has(quest.id)} onChange={() => onToggleActive(quest.id)} />
+              ▶ Active
+            </label>
+          )}
           <a className="wiki-link" href={quest.wikiLink} target="_blank" rel="noreferrer">
             Open wiki page ↗
           </a>

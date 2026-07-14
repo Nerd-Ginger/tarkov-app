@@ -172,3 +172,60 @@ export interface Ammo {
   recoil: number
   tracer: boolean
 }
+
+// ---- barters & crafts ----
+
+export interface RawTradeItem {
+  item: ItemRef & { types?: string[] | null }
+  count: number
+}
+
+export interface RawBarter {
+  id: string
+  trader: { name: string }
+  level: number
+  taskUnlock: { id: string; name: string } | null
+  requiredItems: RawTradeItem[]
+  rewardItems: RawTradeItem[]
+}
+
+export interface RawCraft {
+  id: string
+  station: { id: string; name: string }
+  level: number
+  duration: number
+  requiredItems: RawTradeItem[]
+  rewardItems: RawTradeItem[]
+}
+
+export interface TradeItem {
+  item: ItemRef
+  count: number
+  /** Item is banned from flea market — must be found in raid (or bartered/crafted). */
+  noFlea: boolean
+}
+
+export interface Barter {
+  id: string
+  trader: string
+  /** Trader loyalty level required (LL1–LL4). */
+  level: number
+  unlockQuest: { id: string; name: string } | null
+  required: TradeItem[]
+  reward: TradeItem[]
+  /** Any required item is flea-banned → you need in-raid finds. */
+  fir: boolean
+}
+
+export interface Craft {
+  id: string
+  stationId: string
+  station: string
+  /** Station level required. */
+  level: number
+  durationSec: number
+  required: TradeItem[]
+  reward: TradeItem[]
+  /** Any required item is flea-banned → you need in-raid finds. */
+  fir: boolean
+}

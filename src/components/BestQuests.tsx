@@ -11,6 +11,7 @@ interface Props {
   best: BestQuest[]
   rewards: RewardQuest[]
   done: Set<string>
+  active: Set<string>
   onToggleDone: (id: string) => void
   onQuestClick: (quest: Quest) => void
   progress: QuestProgress
@@ -46,17 +47,18 @@ function MapBadges({ quest }: { quest: Quest }) {
   )
 }
 
-function Card({ quest: q, rank, highlight, children, done, onToggleDone, onQuestClick }: {
+function Card({ quest: q, rank, highlight, children, done, active, onToggleDone, onQuestClick }: {
   quest: Quest
   rank: number
   highlight: React.ReactNode
   children: React.ReactNode
   done: Set<string>
+  active: Set<string>
   onToggleDone: (id: string) => void
   onQuestClick: (quest: Quest) => void
 }) {
   return (
-    <div className="best-card">
+    <div className={`best-card ${active.has(q.id) ? 'is-active' : ''}`}>
       <div className="best-rank">#{rank}</div>
       <div className="best-head">
         <button className="quest-link best-name" onClick={() => onQuestClick(q)} title="Click for details">
@@ -64,6 +66,9 @@ function Card({ quest: q, rank, highlight, children, done, onToggleDone, onQuest
         </button>
         {q.kappa && <span className="kappa-badge">κ</span>}
         <LightkeeperMark quest={q} />
+        {active.has(q.id) && (
+          <span className="active-badge" title="You're currently on this quest">▶ Active</span>
+        )}
       </div>
       <div className="best-meta">
         {q.trader} · Lv {q.minLevel}
@@ -79,8 +84,8 @@ function Card({ quest: q, rank, highlight, children, done, onToggleDone, onQuest
   )
 }
 
-export function BestQuests({ best, rewards, done, onToggleDone, onQuestClick, progress, onSetProgress }: Props) {
-  const cardProps = { done, onToggleDone, onQuestClick }
+export function BestQuests({ best, rewards, done, active, onToggleDone, onQuestClick, progress, onSetProgress }: Props) {
+  const cardProps = { done, active, onToggleDone, onQuestClick }
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   return (

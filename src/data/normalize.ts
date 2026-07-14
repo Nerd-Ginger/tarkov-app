@@ -1,5 +1,19 @@
 import { ANY_MAP, ARENA, MAP_UNKNOWN, NO_RAID } from '../types'
-import type { Ammo, ObjectiveCategory, Quest, RawAmmo, RawHideoutStation, RawTask, StationLevel } from '../types'
+import type {
+  Ammo,
+  Barter,
+  Craft,
+  ObjectiveCategory,
+  Quest,
+  RawAmmo,
+  RawBarter,
+  RawCraft,
+  RawHideoutStation,
+  RawTask,
+  RawTradeItem,
+  StationLevel,
+  TradeItem,
+} from '../types'
 
 /** Map variants that are the same physical location for quest purposes. */
 const MAP_ALIASES: Record<string, string> = {
@@ -302,5 +316,60 @@ export function normalizeAmmo(ammo: RawAmmo[]): Ammo[] {
     tracer: a.tracer,
   }))
   rows.sort((a, b) => a.caliber.localeCompare(b.caliber) || b.pen - a.pen)
+  return rows
+}
+
+// ---- barters & crafts ----
+
+function normalizeTradeItems(items: RawTradeItem[]): TradeItem[] {
+  return items.map((r) => ({
+    item: { id: r.item.id, name: r.item.name, shortName: r.item.shortName },
+    count: r.count,
+    noFlea: (r.item.types ?? []).includes('noFlea'),
+  }))
+}
+
+export function normalizeBarters(barters: RawBarter[]): Barter[] {
+  const rows = barters.map((b) => {
+    const required = normalizeTradeItems(b.requiredItems)
+    return {
+      id: b.id,
+      trader: b.trader.name,
+      level: b.level,
+      unlockQuest: b.taskUnlock,
+      required,
+      reward: normalizeTradeItems(b.rewardItems),
+      fir: required.some((r) => r.noFlea),
+    }
+  })
+  rows.sort(
+    (a, b) =>
+      traderSortKey(a.trader) - traderSortKey(b.trader) ||
+      a.level - b.level ||
+      (a.reward[0]?.item.name ?? '').localeCompare(b.reward[0]?.item.name ?? ''),
+  )
+  return rows
+}
+
+export function normalizeCrafts(crafts: RawCraft[]): Craft[] {
+  const rows = crafts.map((c) => {
+    const required = normalizeTradeItems(c.requiredItems)
+    return {
+      id: c.id,
+      stationId: c.station.id,
+      station: c.station.name,
+      level: c.level,
+      durationSec: c.duration,
+      required,
+      reward: normalizeTradeItems(c.rewardItems),
+      fir: required.some((r) => r.noFlea),
+    }
+  })
+  rows.sort(
+    (a, b) =>
+      a.station.localeCompare(b.station) ||
+      a.level - b.level ||
+      (a.reward[0]?.item.name ?? '').localeCompare(b.reward[0]?.item.name ?? ''),
+  )
   return rows
 }
