@@ -1,5 +1,8 @@
 import type { Inventory } from '../hooks/useInventory'
 import type { QuestProgress } from '../hooks/useQuestProgress'
+import type { Profile } from '../types'
+
+const DEFAULT_PROFILE: Profile = { pmcLevel: 1, traders: {} }
 
 export interface ProgressData {
   done: string[]
@@ -7,18 +10,28 @@ export interface ProgressData {
   hideout: string[]
   questProgress: QuestProgress
   active: string[]
+  profile: Profile
 }
 
-/** Download the full progress state as tarkov-progress.json (version 4). */
+/** Download the full progress state as tarkov-progress.json (version 5). */
 export function exportProgress(
   done: Set<string>,
   inventory: Inventory,
   hideout: Set<string>,
   questProgress: QuestProgress,
   active: Set<string>,
+  profile: Profile,
 ) {
   const data = JSON.stringify(
-    { version: 4, done: [...done], inventory, hideout: [...hideout], questProgress, active: [...active] },
+    {
+      version: 5,
+      done: [...done],
+      inventory,
+      hideout: [...hideout],
+      questProgress,
+      active: [...active],
+      profile,
+    },
     null,
     2,
   )
@@ -60,7 +73,17 @@ export function importProgress(onLoad: (data: ProgressData) => void) {
             : {}
         const activeRaw: unknown[] = Array.isArray(parsed?.active) ? parsed.active : []
         const active = activeRaw.filter((id): id is string => typeof id === 'string')
-        onLoad({ done, inventory, hideout, questProgress, active })
+        const profile: Profile =
+          parsed && typeof parsed.profile === 'object' && parsed.profile !== null
+            ? {
+                pmcLevel: typeof parsed.profile.pmcLevel === 'number' ? parsed.profile.pmcLevel : 1,
+                traders:
+                  typeof parsed.profile.traders === 'object' && parsed.profile.traders !== null
+                    ? parsed.profile.traders
+                    : {},
+              }
+            : DEFAULT_PROFILE
+        onLoad({ done, inventory, hideout, questProgress, active, profile })
       } catch {
         alert('Could not read that file — expected a tarkov-progress.json save.')
       }

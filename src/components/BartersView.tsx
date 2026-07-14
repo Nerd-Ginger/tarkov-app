@@ -1,10 +1,15 @@
-import { useMemo, useState } from 'react'
-import type { Barter } from '../types'
+import { useEffect, useMemo, useState } from 'react'
+import type { Barter, Profile } from '../types'
 import { traderSortKey } from '../data/normalize'
+import { traderLoyalty } from '../hooks/useProfile'
 import { FirBadge, TradeList } from './TradeParts'
+
+const FILTER_KEY = 'tarkov.barterFilter.v1'
 
 interface Props {
   barters: Barter[]
+  profile: Profile
+  done: Set<string>
 }
 
 function matches(b: Barter, s: string): boolean {
@@ -15,10 +20,23 @@ function matches(b: Barter, s: string): boolean {
   )
 }
 
-export function BartersView({ barters }: Props) {
+export function BartersView({ barters, profile, done }: Props) {
   const [search, setSearch] = useState('')
   const [firOnly, setFirOnly] = useState(false)
+  const [canBuyOnly, setCanBuyOnly] = useState(() => localStorage.getItem(FILTER_KEY) === '1')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(FILTER_KEY, canBuyOnly ? '1' : '0')
+    } catch {
+      // fine — toggle just won't persist
+    }
+  }, [canBuyOnly])
+
+  // Accessible now = trader leveled high enough AND (no quest gate, or it's done).
+  const canBuy = (b: Barter) =>
+    traderLoyalty(profile, b.trader) >= b.level && (!b.unlockQuest || done.has(b.unlockQuest.id))
 
   const allTraders = useMemo(() => {
     const s = new Set(barters.map((b) => b.trader))
@@ -32,6 +50,7 @@ export function BartersView({ barters }: Props) {
       list = list.filter((b) => matches(b, s))
     }
     if (firOnly) list = list.filter((b) => b.fir)
+    if (canBuyOnly) list = list.filter(canBuy)
     const byTrader = new Map<string, Barter[]>()
     for (const b of list) {
       let g = byTrader.get(b.trader)
@@ -39,7 +58,8 @@ export function BartersView({ barters }: Props) {
       g.push(b)
     }
     return [...byTrader.entries()].sort((a, b) => traderSortKey(a[0]) - traderSortKey(b[0]))
-  }, [barters, search, firOnly])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [barters, search, firOnly, canBuyOnly, profile, done])
 
   const toggleGroup = (t: string) => {
     setCollapsed((prev) => {
@@ -67,6 +87,13 @@ export function BartersView({ barters }: Props) {
             <input type="checkbox" checked={firOnly} onChange={(e) => setFirOnly(e.target.checked)} />
             FIR barters only
           </label>
+          <label
+            className="check-label arena-toggle"
+            title="Only show barters you can access now — trader leveled high enough (set in Profile) and any quest unlock completed."
+          >
+            <input type="checkbox" checked={canBuyOnly} onChange={(e) => setCanBuyOnly(e.target.checked)} />
+            Can buy
+          </label>
           <button className="clear-btn" onClick={() => setCollapsed(new Set())}>Expand all</button>
           <button className="clear-btn" onClick={() => setCollapsed(new Set(allTraders))}>Collapse all</button>
           <span className="flow-hint">✱ = flea-banned item, find in raid</span>
@@ -91,7 +118,13 @@ export function BartersView({ barters }: Props) {
           </tbody>
         </table>
       </div>
-      {groups.length === 0 && <p className="empty-note">No barters match.</p>}
+      {groups.length === 0 && (
+        <p className="empty-note">
+          {canBuyOnly
+            ? 'No accessible barters match — raise trader levels in Profile, or turn off Can buy.'
+            : 'No barters match.'}
+        </p>
+      )}
     </div>
   )
 }

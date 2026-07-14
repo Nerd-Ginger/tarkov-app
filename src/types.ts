@@ -229,3 +229,12 @@ export interface Craft {
   /** Any required item is flea-banned → you need in-raid finds. */
   fir: boolean
 }
+
+// ---- profile ----
+
+export interface Profile {
+  /** PMC character level (0 = unset). */
+  pmcLevel: number
+  /** Trader name → loyalty level you've reached (1–4). Missing = LL1. */
+  traders: Record<string, number>
+}

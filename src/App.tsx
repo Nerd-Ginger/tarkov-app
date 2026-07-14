@@ -8,6 +8,7 @@ import { AmmoView } from './components/AmmoView'
 import { BartersView } from './components/BartersView'
 import { BestQuests } from './components/BestQuests'
 import { CraftsView } from './components/CraftsView'
+import { ProfileView } from './components/ProfileView'
 import { bestQuests, bestRewardQuests } from './data/bestQuests'
 import { FilterBar } from './components/FilterBar'
 import { HideoutView } from './components/HideoutView'
@@ -26,12 +27,13 @@ import { useActive } from './hooks/useActive'
 import { useDone } from './hooks/useDone'
 import { useHideout } from './hooks/useHideout'
 import { useInventory } from './hooks/useInventory'
+import { useProfile } from './hooks/useProfile'
 import { useQuestData } from './hooks/useQuestData'
 import { useQuestProgress } from './hooks/useQuestProgress'
 
 const REPO_URL = 'https://github.com/Nerd-Ginger/tarkov-app'
 
-type View = 'quests' | 'best' | 'items' | 'hideout' | 'barters' | 'crafts' | 'ammo'
+type View = 'quests' | 'best' | 'items' | 'hideout' | 'barters' | 'crafts' | 'ammo' | 'profile'
 const VIEW_KEY = 'tarkov.view.v1'
 const VIEWS: { id: View; label: string }[] = [
   { id: 'quests', label: 'Quests' },
@@ -41,9 +43,10 @@ const VIEWS: { id: View; label: string }[] = [
   { id: 'barters', label: 'Barter' },
   { id: 'crafts', label: 'Crafts' },
   { id: 'ammo', label: 'Ammo' },
+  { id: 'profile', label: 'Profile' },
 ]
 
-const OTHER_VIEWS = new Set<string>(['best', 'items', 'hideout', 'barters', 'crafts', 'ammo'])
+const OTHER_VIEWS = new Set<string>(['best', 'items', 'hideout', 'barters', 'crafts', 'ammo', 'profile'])
 
 function readView(): View {
   const v = localStorage.getItem(VIEW_KEY)
@@ -65,6 +68,7 @@ export default function App() {
   const { built, toggleBuilt, replaceBuilt } = useHideout()
   const { progress, setObjective, replaceProgress } = useQuestProgress()
   const { active, toggleActive, clearActive, replaceActive } = useActive()
+  const { profile, setPmcLevel, setTraderLevel, replaceProfile } = useProfile()
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const [detailQuest, setDetailQuest] = useState<Quest | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -134,7 +138,7 @@ export default function App() {
     [levelByKey, built, applyDeltas, toggleBuilt],
   )
 
-  const saveProgress = () => exportProgress(done, inventory, built, progress, active)
+  const saveProgress = () => exportProgress(done, inventory, built, progress, active, profile)
   const loadProgress = () =>
     importProgress((data) => {
       replaceDone(data.done)
@@ -142,7 +146,14 @@ export default function App() {
       replaceBuilt(data.hideout)
       replaceProgress(data.questProgress)
       replaceActive(data.active)
+      replaceProfile(data.profile)
     })
+
+  // Traders that actually run barters — the set the Profile lets you level.
+  const barterTraders = useMemo(() => {
+    const s = new Set(barters.map((b) => b.trader))
+    return [...s].sort((a, b) => traderSortKey(a) - traderSortKey(b))
+  }, [barters])
 
   // The Arena questline is hidden entirely until the user opts in — you have to
   // "touch Arena" to see it. Everything below is derived from this gated list.
@@ -455,7 +466,23 @@ export default function App() {
               same thing. <strong className="warn-text">FIR</strong> = the barter needs items banned from the flea
               market, so you'll have to find them in raid.
             </p>
-            <BartersView barters={barters} />
+            <BartersView barters={barters} profile={profile} done={done} />
+          </section>
+        )}
+
+        {view === 'profile' && (
+          <section>
+            <h2>Profile</h2>
+            <p className="legend">
+              Your character level and trader loyalty. These drive the Barter view's <strong>Can buy</strong>{' '}
+              filter so it only shows what you actually have access to. Saved with your progress file.
+            </p>
+            <ProfileView
+              profile={profile}
+              traders={barterTraders}
+              onSetPmcLevel={setPmcLevel}
+              onSetTraderLevel={setTraderLevel}
+            />
           </section>
         )}
 
