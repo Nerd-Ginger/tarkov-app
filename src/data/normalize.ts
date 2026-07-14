@@ -21,8 +21,12 @@ const MAP_ALIASES: Record<string, string> = {
   'Night Factory': 'Factory',
 }
 
-/** Seasonal/event maps — shown, but tagged so they don't read as core maps. */
-export const EVENT_MAPS = new Set(['Icebreaker', 'The Labyrinth'])
+/**
+ * Seasonal/event maps — shown, but tagged so they don't read as core maps.
+ * "The Lab (Dark)" is the Blackout-event darkened Lab variant. (Terminal is a
+ * permanent new map, so it's a normal entry in MAP_ORDER, NOT tagged event.)
+ */
+export const EVENT_MAPS = new Set(['Icebreaker', 'The Labyrinth', 'The Lab (Dark)'])
 
 /**
  * Buckets for quests with no specific map. These are NOT real maps — the point is
@@ -60,12 +64,14 @@ const MAP_ORDER = [
   'Lighthouse',
   'Streets of Tarkov',
   'The Lab',
+  'Terminal',
   ANY_MAP,
   NO_RAID,
   ARENA,
   MAP_UNKNOWN,
   'Icebreaker',
   'The Labyrinth',
+  'The Lab (Dark)',
 ]
 
 export function mapSortKey(name: string): number {
