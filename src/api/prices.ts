@@ -1,7 +1,7 @@
 import type { PriceRow } from '../types'
 
 const API_URL = 'https://api.tarkov.dev/graphql'
-const CACHE_KEY = 'tarkov.prices.v2'
+const CACHE_KEY = 'tarkov.prices.v3'
 export const PRICES_MAX_AGE_MS = 60 * 60 * 1000 // 1h — flea prices move fast
 
 export const ROUBLES_ID = '5449016a4bdc2d6f028b456f'
@@ -17,6 +17,7 @@ const PRICES_QUERY = `{
     avg24hPrice
     lastLowPrice
     low24hPrice
+    high24hPrice
     changeLast48hPercent
     types
     sellFor { priceRUB source }
@@ -32,6 +33,7 @@ interface RawPriceItem {
   avg24hPrice: number | null
   lastLowPrice: number | null
   low24hPrice: number | null
+  high24hPrice: number | null
   changeLast48hPercent: number | null
   types: string[] | null
   sellFor: { priceRUB: number; source: string }[] | null
@@ -88,10 +90,13 @@ function trim(raw: RawPriceItem): PriceRow {
       traderName = s.source
     }
   }
-  // Only trust a flea price backed by real 24h trades. tarkov.dev keeps a flat
-  // estimated avg for restricted/untradeable items (event masks etc.) with no
-  // 24h low — those aren't actually sellable on flea, so we drop the price.
-  const traded = raw.low24hPrice != null
+  // Only trust a flea price backed by a real 24h trading spread. tarkov.dev
+  // keeps a flat placeholder price (avg = low = high, often absurd) for
+  // restricted/untradeable items — event masks, quest-fuel, gun parts — that
+  // aren't actually sellable on flea. A genuine market has low < high; anything
+  // without that spread (or with no 24h low/high at all) we don't trust.
+  const traded =
+    raw.low24hPrice != null && raw.high24hPrice != null && raw.high24hPrice > raw.low24hPrice
   return {
     id: raw.id,
     name: raw.name,
