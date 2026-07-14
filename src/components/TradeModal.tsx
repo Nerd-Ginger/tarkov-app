@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
-import type { Barter, Craft, Profile, StationLevel } from '../types'
+import type { Barter, Craft, PriceRow, Profile, StationLevel, TradeItem } from '../types'
+import { ROUBLES_ID } from '../api/prices'
 import { traderLoyalty } from '../hooks/useProfile'
 import { FirBadge, TradeList } from './TradeParts'
 
@@ -12,8 +13,50 @@ interface Props {
   profile: Profile
   done: Set<string>
   built: Set<string>
+  prices: Map<string, PriceRow>
   onClose: () => void
 }
+
+interface SideValue {
+  total: number
+  /** Items with no usable price (flea-banned inputs, unlisted items). */
+  unpriced: TradeItem[]
+}
+
+/** Cost to buy the inputs off the flea (Roubles = face value). */
+function giveCost(items: TradeItem[], prices: Map<string, PriceRow>): SideValue {
+  let total = 0
+  const unpriced: TradeItem[] = []
+  for (const t of items) {
+    if (t.item.id === ROUBLES_ID) {
+      total += t.count
+      continue
+    }
+    const flea = prices.get(t.item.id)?.flea
+    if (t.noFlea || flea == null) unpriced.push(t)
+    else total += flea * t.count
+  }
+  return { total, unpriced }
+}
+
+/** What the rewards are worth — flea when sellable, else best trader. */
+function getValue(items: TradeItem[], prices: Map<string, PriceRow>): SideValue {
+  let total = 0
+  const unpriced: TradeItem[] = []
+  for (const t of items) {
+    if (t.item.id === ROUBLES_ID) {
+      total += t.count
+      continue
+    }
+    const p = prices.get(t.item.id)
+    const v = p?.flea ?? (p && p.trader > 0 ? p.trader : null)
+    if (v == null) unpriced.push(t)
+    else total += v * t.count
+  }
+  return { total, unpriced }
+}
+
+const rub = (n: number) => `₽${Math.round(n).toLocaleString()}`
 
 /** true = met, false = unmet, null = can't verify (e.g. a skill level). */
 function ReqRow({ met, label, sub }: { met: boolean | null; label: React.ReactNode; sub?: boolean }) {
@@ -36,7 +79,7 @@ function maxBuiltLevel(built: Set<string>, stationId: string): number {
   return max
 }
 
-export function TradeModal({ data, profile, done, built, onClose }: Props) {
+export function TradeModal({ data, profile, done, built, prices, onClose }: Props) {
   useEffect(() => {
     if (!data) return
     const onKey = (e: KeyboardEvent) => {
@@ -122,13 +165,51 @@ export function TradeModal({ data, profile, done, built, onClose }: Props) {
           </ul>
         </div>
 
+        {(() => {
+          if (prices.size === 0) {
+            return (
+              <div className="modal-section">
+                <span className="modal-label">Worth it?</span>
+                <p className="empty-note">Prices unavailable — connect once so live flea prices can load.</p>
+              </div>
+            )
+          }
+          const cost = giveCost(required, prices)
+          const value = getValue(reward, prices)
+          const profit = value.total - cost.total
+          return (
+            <div className="modal-section">
+              <span className="modal-label">Worth it?</span>
+              <div className="verdict">
+                <span>Cost ≈ <strong>{rub(cost.total)}</strong></span>
+                <span>·</span>
+                <span>Value ≈ <strong>{rub(value.total)}</strong></span>
+                <span>·</span>
+                <span className={profit >= 0 ? 'verdict-good' : 'verdict-bad'}>
+                  {profit >= 0 ? '+' : '−'}{rub(Math.abs(profit))} {profit >= 0 ? 'profit' : 'loss'}
+                </span>
+              </div>
+              {cost.unpriced.length > 0 && (
+                <p className="verdict-note">
+                  …plus {cost.unpriced.map((t) => `${t.count}× ${t.item.shortName}`).join(', ')} you can't buy on
+                  flea (find in raid) — real cost is higher.
+                </p>
+              )}
+              {value.unpriced.length > 0 && (
+                <p className="verdict-note">Some rewards have no market price and aren't counted.</p>
+              )}
+              <p className="verdict-note dim">Flea 24h averages, before flea listing fees.</p>
+            </div>
+          )
+        })()}
+
         <div className="modal-section">
           <span className="modal-label">You get</span>
-          <TradeList items={reward} />
+          <TradeList items={reward} prices={prices} />
         </div>
         <div className="modal-section">
           <span className="modal-label">You give</span>
-          <TradeList items={required} />
+          <TradeList items={required} prices={prices} />
           {fir && <p className="req-fir-note">✱ items are banned from the flea market — find them in raid.</p>}
         </div>
       </div>

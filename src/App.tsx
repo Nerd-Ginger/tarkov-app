@@ -3,8 +3,9 @@
  * Author: Nerd_Ginger — https://github.com/Nerd-Ginger/tarkov-app
  * Quest & item data from the tarkov.dev API.
  */
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AmmoView } from './components/AmmoView'
+import { FireSaleView } from './components/FireSaleView'
 import { BartersView } from './components/BartersView'
 import { BestQuests } from './components/BestQuests'
 import { CraftsView } from './components/CraftsView'
@@ -29,13 +30,14 @@ import { useActive } from './hooks/useActive'
 import { useDone } from './hooks/useDone'
 import { useHideout } from './hooks/useHideout'
 import { useInventory } from './hooks/useInventory'
+import { usePrices } from './hooks/usePrices'
 import { useProfile } from './hooks/useProfile'
 import { useQuestData } from './hooks/useQuestData'
 import { useQuestProgress } from './hooks/useQuestProgress'
 
 const REPO_URL = 'https://github.com/Nerd-Ginger/tarkov-app'
 
-type View = 'quests' | 'best' | 'items' | 'hideout' | 'barters' | 'crafts' | 'ammo' | 'profile'
+type View = 'quests' | 'best' | 'items' | 'hideout' | 'barters' | 'crafts' | 'firesale' | 'ammo' | 'profile'
 const VIEW_KEY = 'tarkov.view.v1'
 const VIEWS: { id: View; label: string }[] = [
   { id: 'quests', label: 'Quests' },
@@ -44,11 +46,15 @@ const VIEWS: { id: View; label: string }[] = [
   { id: 'hideout', label: 'Hideout' },
   { id: 'barters', label: 'Barter' },
   { id: 'crafts', label: 'Crafts' },
+  { id: 'firesale', label: 'Fire Sale' },
   { id: 'ammo', label: 'Ammo' },
   { id: 'profile', label: 'Profile' },
 ]
 
-const OTHER_VIEWS = new Set<string>(['best', 'items', 'hideout', 'barters', 'crafts', 'ammo', 'profile'])
+const OTHER_VIEWS = new Set<string>(['best', 'items', 'hideout', 'barters', 'crafts', 'firesale', 'ammo', 'profile'])
+
+/** Views that show flea prices — visiting one triggers the lazy price fetch. */
+const PRICE_VIEWS = new Set<View>(['items', 'barters', 'crafts', 'firesale'])
 
 function readView(): View {
   const v = localStorage.getItem(VIEW_KEY)
@@ -71,6 +77,15 @@ export default function App() {
   const { progress, setObjective, replaceProgress } = useQuestProgress()
   const { active, toggleActive, clearActive, replaceActive } = useActive()
   const { profile, setPmcLevel, setTraderLevel, replaceProfile } = useProfile()
+  const {
+    rows: priceRows,
+    byId: pricesById,
+    fetchedAt: pricesFetchedAt,
+    loading: pricesLoading,
+    offline: pricesOffline,
+    ensureFresh: ensureFreshPrices,
+    refresh: refreshPrices,
+  } = usePrices()
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const [detailQuest, setDetailQuest] = useState<Quest | null>(null)
   const [tradeModal, setTradeModal] = useState<TradeModalData | null>(null)
@@ -88,6 +103,11 @@ export default function App() {
       // fine — view just won't persist
     }
   }
+
+  // Prices load lazily: only once a price-showing view is opened, then hourly.
+  useEffect(() => {
+    if (PRICE_VIEWS.has(view)) ensureFreshPrices()
+  }, [view, ensureFreshPrices])
 
   const questById = useMemo(() => new Map(quests.map((q) => [q.id, q])), [quests])
   const levelByKey = useMemo(() => new Map(stations.map((l) => [l.key, l])), [stations])
@@ -462,6 +482,7 @@ export default function App() {
               stations={stations}
               built={built}
               inventory={inventory}
+              prices={pricesById}
               onSetCount={setCount}
               onQuestClick={setDetailQuest}
             />
@@ -512,6 +533,24 @@ export default function App() {
           </section>
         )}
 
+        {view === 'firesale' && (
+          <section>
+            <h2>Fire Sale</h2>
+            <p className="legend">
+              Live PvE prices from tarkov.dev (refreshed ~hourly when online). <strong>Sell to</strong> = who pays
+              more for the item; trader prices are the best trader, in roubles.{' '}
+              <strong className="warn-text">✱</strong> = flea-banned, trader-only.
+            </p>
+            <FireSaleView
+              rows={priceRows}
+              fetchedAt={pricesFetchedAt}
+              loading={pricesLoading}
+              offline={pricesOffline}
+              onRefresh={() => void refreshPrices()}
+            />
+          </section>
+        )}
+
         {view === 'ammo' && (
           <section>
             <h2>Ammo</h2>
@@ -543,6 +582,7 @@ export default function App() {
           profile={profile}
           done={done}
           built={built}
+          prices={pricesById}
           onClose={() => setTradeModal(null)}
         />
 

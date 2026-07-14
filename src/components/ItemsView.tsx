@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
-import type { Quest, StationLevel } from '../types'
+import type { PriceRow, Quest, StationLevel } from '../types'
 import type { Inventory } from '../hooks/useInventory'
 import { aggregateNeeds } from '../data/items'
 import type { ItemNeed } from '../data/items'
 
 type Source = 'all' | 'quests' | 'hideout'
-type SortField = 'name' | 'needed' | 'have' | 'short'
+type SortField = 'name' | 'needed' | 'have' | 'short' | 'flea'
 type SortDir = 'asc' | 'desc'
 
 const fmt = (n: number) => n.toLocaleString('en-US')
@@ -22,11 +22,12 @@ interface Props {
   stations: StationLevel[]
   built: Set<string>
   inventory: Inventory
+  prices: Map<string, PriceRow>
   onSetCount: (itemId: string, count: number) => void
   onQuestClick: (q: Quest) => void
 }
 
-export function ItemsView({ quests, done, stations, built, inventory, onSetCount, onQuestClick }: Props) {
+export function ItemsView({ quests, done, stations, built, inventory, prices, onSetCount, onQuestClick }: Props) {
   const [source, setSource] = useState<Source>('all')
   const [search, setSearch] = useState('')
   const [hideCovered, setHideCovered] = useState(false)
@@ -58,6 +59,7 @@ export function ItemsView({ quests, done, stations, built, inventory, onSetCount
         case 'needed': return needed
         case 'have': return have
         case 'short': return Math.max(0, needed - have)
+        case 'flea': return prices.get(n.item.id)?.flea ?? -1
       }
     }
     return [...list].sort((a, b) => {
@@ -66,7 +68,7 @@ export function ItemsView({ quests, done, stations, built, inventory, onSetCount
       const cmp = typeof va === 'string' ? va.localeCompare(vb as string) : (va as number) - (vb as number)
       return m * cmp || a.item.name.localeCompare(b.item.name)
     })
-  }, [needs, source, search, hideCovered, sortField, sortDir, inventory])
+  }, [needs, source, search, hideCovered, sortField, sortDir, inventory, prices])
 
   const handleSort = (field: SortField) => {
     if (sortField === field) setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
@@ -128,6 +130,13 @@ export function ItemsView({ quests, done, stations, built, inventory, onSetCount
                 <th className={`count-col sortable ${sortField === 'short' ? 'sorted' : ''}`} onClick={() => handleSort('short')}>
                   Short{arrow('short')}
                 </th>
+                <th
+                  className={`count-col sortable ${sortField === 'flea' ? 'sorted' : ''}`}
+                  onClick={() => handleSort('flea')}
+                  title="Flea market 24h average per unit — dash = flea-banned or no data"
+                >
+                  Flea ea.{arrow('flea')}
+                </th>
                 <th>Needed by</th>
               </tr>
             </thead>
@@ -162,6 +171,12 @@ export function ItemsView({ quests, done, stations, built, inventory, onSetCount
                     </td>
                     <td className="count-col">
                       <span className={short === 0 ? 'count all-done' : 'count short-count'}>{fmt(short)}</span>
+                    </td>
+                    <td className="count-col flea-price">
+                      {(() => {
+                        const p = prices.get(n.item.id)
+                        return p?.flea ? `₽${fmt(Math.round(p.flea))}` : '—'
+                      })()}
                     </td>
                     <td>
                       <div className="quest-chips">

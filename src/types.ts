@@ -230,6 +230,25 @@ export interface Craft {
   fir: boolean
 }
 
+// ---- flea prices ----
+
+/** Trimmed live price row (cached ~1h; never bundled in the snapshot). */
+export interface PriceRow {
+  id: string
+  name: string
+  shortName: string
+  /** Flea average 24h price (₽), null when flea-banned or never listed. */
+  flea: number | null
+  /** Most recent lowest flea listing (₽). */
+  lastLow: number | null
+  /** 48h price change in percent. */
+  change48h: number | null
+  /** Best trader sell price, normalized to roubles (0 = no trader buys it). */
+  trader: number
+  traderName: string
+  noFlea: boolean
+}
+
 // ---- profile ----
 
 export interface Profile {

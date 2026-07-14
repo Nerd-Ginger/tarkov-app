@@ -1555,6 +1555,76 @@ tr.done .quest-link {
   background: rgba(198, 177, 144, 0.06);
 }
 
+/* ---- flea prices / fire sale ---- */
+
+.firesale-table {
+  min-width: 720px;
+}
+
+.delta-up {
+  color: var(--cat-extract);
+}
+
+.delta-down {
+  color: var(--cat-kill);
+}
+
+.trader-src {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.sell-flea {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 12.5px;
+}
+
+.sell-trader {
+  color: var(--cat-extract);
+  font-weight: 600;
+  font-size: 12.5px;
+}
+
+.unit-price {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.flea-price {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.verdict {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13.5px;
+  align-items: baseline;
+}
+
+.verdict-good {
+  color: var(--cat-extract);
+  font-weight: 700;
+}
+
+.verdict-bad {
+  color: var(--cat-kill);
+  font-weight: 700;
+}
+
+.verdict-note {
+  color: var(--warn);
+  font-size: 11.5px;
+  margin: 6px 0 0;
+}
+
+.verdict-note.dim {
+  color: var(--text-dim);
+}
+
 /* unlock-requirements checklist in the trade modal */
 
 .req-list {
