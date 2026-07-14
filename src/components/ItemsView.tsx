@@ -32,13 +32,16 @@ export function ItemsView({ quests, done, stations, built, inventory, prices, on
   const [source, setSource] = useState<Source>('all')
   const [search, setSearch] = useState('')
   const [hideCovered, setHideCovered] = useState(false)
+  const [kappaOnly, setKappaOnly] = useState(false)
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
 
-  const needs = useMemo(
-    () => aggregateNeeds(quests, done, stations, built),
-    [quests, done, stations, built],
-  )
+  // Kappa is a quest goal — restrict to Kappa quests and drop hideout needs.
+  const needs = useMemo(() => {
+    const qs = kappaOnly ? quests.filter((q) => q.kappa) : quests
+    const st = kappaOnly ? [] : stations
+    return aggregateNeeds(qs, done, st, built)
+  }, [quests, done, stations, built, kappaOnly])
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -105,6 +108,10 @@ export function ItemsView({ quests, done, stations, built, inventory, prices, on
           <label className="check-label">
             <input type="checkbox" checked={hideCovered} onChange={(e) => setHideCovered(e.target.checked)} />
             Hide covered
+          </label>
+          <label className="check-label" title="Only items needed for Kappa-required quests (no hideout)">
+            <input type="checkbox" checked={kappaOnly} onChange={(e) => setKappaOnly(e.target.checked)} />
+            Kappa only
           </label>
           <span className="items-summary">
             {rows.length} items · {fmt(totalShort)} still to find
