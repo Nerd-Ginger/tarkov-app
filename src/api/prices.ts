@@ -1,7 +1,7 @@
 import type { PriceRow } from '../types'
 
 const API_URL = 'https://api.tarkov.dev/graphql'
-const CACHE_KEY = 'tarkov.prices.v1'
+const CACHE_KEY = 'tarkov.prices.v2'
 export const PRICES_MAX_AGE_MS = 60 * 60 * 1000 // 1h — flea prices move fast
 
 export const ROUBLES_ID = '5449016a4bdc2d6f028b456f'
@@ -16,6 +16,7 @@ const PRICES_QUERY = `{
     height
     avg24hPrice
     lastLowPrice
+    low24hPrice
     changeLast48hPercent
     types
     sellFor { priceRUB source }
@@ -30,6 +31,7 @@ interface RawPriceItem {
   height: number | null
   avg24hPrice: number | null
   lastLowPrice: number | null
+  low24hPrice: number | null
   changeLast48hPercent: number | null
   types: string[] | null
   sellFor: { priceRUB: number; source: string }[] | null
@@ -86,12 +88,16 @@ function trim(raw: RawPriceItem): PriceRow {
       traderName = s.source
     }
   }
+  // Only trust a flea price backed by real 24h trades. tarkov.dev keeps a flat
+  // estimated avg for restricted/untradeable items (event masks etc.) with no
+  // 24h low — those aren't actually sellable on flea, so we drop the price.
+  const traded = raw.low24hPrice != null
   return {
     id: raw.id,
     name: raw.name,
     shortName: raw.shortName,
-    flea: raw.avg24hPrice && raw.avg24hPrice > 0 ? raw.avg24hPrice : null,
-    lastLow: raw.lastLowPrice && raw.lastLowPrice > 0 ? raw.lastLowPrice : null,
+    flea: traded && raw.avg24hPrice && raw.avg24hPrice > 0 ? raw.avg24hPrice : null,
+    lastLow: traded && raw.lastLowPrice && raw.lastLowPrice > 0 ? raw.lastLowPrice : null,
     change48h: raw.changeLast48hPercent,
     trader,
     traderName,
