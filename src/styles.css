@@ -1547,6 +1547,63 @@ tr.done .quest-link {
   cursor: help;
 }
 
+.trade-row {
+  cursor: pointer;
+}
+
+.trade-row:hover td {
+  background: rgba(198, 177, 144, 0.06);
+}
+
+/* unlock-requirements checklist in the trade modal */
+
+.req-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.req-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.req-row.sub {
+  margin-left: 20px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.req-mark {
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.req-row.met .req-mark {
+  color: var(--cat-extract);
+}
+
+.req-row.unmet .req-mark {
+  color: var(--warn);
+}
+
+.req-row.unknown .req-mark {
+  color: var(--text-dim);
+}
+
+.req-fir-note {
+  color: var(--warn);
+  font-size: 11.5px;
+  margin: 6px 0 0;
+}
+
 .caliber-row td {
   background: var(--panel-2);
   color: var(--accent-strong);

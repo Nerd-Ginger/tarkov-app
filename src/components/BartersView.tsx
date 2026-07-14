@@ -10,6 +10,7 @@ interface Props {
   barters: Barter[]
   profile: Profile
   done: Set<string>
+  onOpen: (barter: Barter) => void
 }
 
 function matches(b: Barter, s: string): boolean {
@@ -20,7 +21,7 @@ function matches(b: Barter, s: string): boolean {
   )
 }
 
-export function BartersView({ barters, profile, done }: Props) {
+export function BartersView({ barters, profile, done, onOpen }: Props) {
   const [search, setSearch] = useState('')
   const [firOnly, setFirOnly] = useState(false)
   const [canBuyOnly, setCanBuyOnly] = useState(() => localStorage.getItem(FILTER_KEY) === '1')
@@ -113,7 +114,14 @@ export function BartersView({ barters, profile, done }: Props) {
           </thead>
           <tbody>
             {groups.map(([trader, rows]) => (
-              <TraderRows key={trader} trader={trader} rows={rows} open={isOpen(trader)} onToggle={() => toggleGroup(trader)} />
+              <TraderRows
+                key={trader}
+                trader={trader}
+                rows={rows}
+                open={isOpen(trader)}
+                onToggle={() => toggleGroup(trader)}
+                onOpen={onOpen}
+              />
             ))}
           </tbody>
         </table>
@@ -129,11 +137,12 @@ export function BartersView({ barters, profile, done }: Props) {
   )
 }
 
-function TraderRows({ trader, rows, open, onToggle }: {
+function TraderRows({ trader, rows, open, onToggle, onOpen }: {
   trader: string
   rows: Barter[]
   open: boolean
   onToggle: () => void
+  onOpen: (barter: Barter) => void
 }) {
   return (
     <>
@@ -146,7 +155,7 @@ function TraderRows({ trader, rows, open, onToggle }: {
       </tr>
       {open &&
         rows.map((b) => (
-          <tr key={b.id}>
+          <tr key={b.id} className="trade-row" onClick={() => onOpen(b)} title="View unlock requirements">
             <td className="trade-reward">
               <TradeList items={b.reward} />
             </td>

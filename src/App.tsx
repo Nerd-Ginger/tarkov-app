@@ -9,6 +9,8 @@ import { BartersView } from './components/BartersView'
 import { BestQuests } from './components/BestQuests'
 import { CraftsView } from './components/CraftsView'
 import { ProfileView } from './components/ProfileView'
+import { TradeModal } from './components/TradeModal'
+import type { TradeModalData } from './components/TradeModal'
 import { bestQuests, bestRewardQuests } from './data/bestQuests'
 import { FilterBar } from './components/FilterBar'
 import { HideoutView } from './components/HideoutView'
@@ -18,11 +20,11 @@ import { QuestModal } from './components/QuestModal'
 import { QuestTree } from './components/QuestTree'
 import { QuestsTable } from './components/QuestsTable'
 import { questHandInItems } from './data/items'
-import { mapSortKey, traderSortKey } from './data/normalize'
+import { mapSortKey, stationLevelKey, traderSortKey } from './data/normalize'
 import { exportProgress, importProgress } from './data/progressFile'
 import { EMPTY_FILTERS, isBlocked, matchesAll } from './filters'
 import type { Filters } from './filters'
-import type { Quest } from './types'
+import type { Barter, Craft, Quest } from './types'
 import { useActive } from './hooks/useActive'
 import { useDone } from './hooks/useDone'
 import { useHideout } from './hooks/useHideout'
@@ -71,6 +73,7 @@ export default function App() {
   const { profile, setPmcLevel, setTraderLevel, replaceProfile } = useProfile()
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const [detailQuest, setDetailQuest] = useState<Quest | null>(null)
+  const [tradeModal, setTradeModal] = useState<TradeModalData | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mapsOpen, setMapsOpen] = useState(true)
   const [treeOpen, setTreeOpen] = useState(false)
@@ -154,6 +157,17 @@ export default function App() {
     const s = new Set(barters.map((b) => b.trader))
     return [...s].sort((a, b) => traderSortKey(a) - traderSortKey(b))
   }, [barters])
+
+  const openBarter = useCallback((barter: Barter) => setTradeModal({ kind: 'barter', barter }), [])
+  const openCraft = useCallback(
+    (craft: Craft) =>
+      setTradeModal({
+        kind: 'craft',
+        craft,
+        stationLevel: levelByKey.get(stationLevelKey(craft.stationId, craft.level)),
+      }),
+    [levelByKey],
+  )
 
   // The Arena questline is hidden entirely until the user opts in — you have to
   // "touch Arena" to see it. Everything below is derived from this gated list.
@@ -466,7 +480,7 @@ export default function App() {
               same thing. <strong className="warn-text">FIR</strong> = the barter needs items banned from the flea
               market, so you'll have to find them in raid.
             </p>
-            <BartersView barters={barters} profile={profile} done={done} />
+            <BartersView barters={barters} profile={profile} done={done} onOpen={openBarter} />
           </section>
         )}
 
@@ -494,7 +508,7 @@ export default function App() {
               <strong className="warn-text">FIR</strong> = the craft needs flea-banned items — find them in raid.
               Flip <strong>Hideout tracking</strong> to hide recipes your tracked hideout can't make yet.
             </p>
-            <CraftsView crafts={crafts} built={built} />
+            <CraftsView crafts={crafts} built={built} onOpen={openCraft} />
           </section>
         )}
 
@@ -522,6 +536,14 @@ export default function App() {
           onSetProgress={setObjective}
           active={active}
           onToggleActive={activateQuest}
+        />
+
+        <TradeModal
+          data={tradeModal}
+          profile={profile}
+          done={done}
+          built={built}
+          onClose={() => setTradeModal(null)}
         />
 
         <footer className="app-footer">

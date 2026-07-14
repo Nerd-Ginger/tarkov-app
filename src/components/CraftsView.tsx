@@ -8,6 +8,7 @@ interface Props {
   crafts: Craft[]
   /** Built hideout levels, keys `${stationId}:${level}` (from useHideout). */
   built: Set<string>
+  onOpen: (craft: Craft) => void
 }
 
 function formatDuration(sec: number): string {
@@ -26,7 +27,7 @@ function matches(c: Craft, s: string): boolean {
   )
 }
 
-export function CraftsView({ crafts, built }: Props) {
+export function CraftsView({ crafts, built, onOpen }: Props) {
   const [search, setSearch] = useState('')
   const [firOnly, setFirOnly] = useState(false)
   const [hideoutTracking, setHideoutTracking] = useState(() => localStorage.getItem(FILTER_KEY) === '1')
@@ -138,6 +139,7 @@ export function CraftsView({ crafts, built }: Props) {
                 open={isOpen(station)}
                 onToggle={() => toggleGroup(station)}
                 tracking={hideoutTracking}
+                onOpen={onOpen}
               />
             ))}
           </tbody>
@@ -154,12 +156,13 @@ export function CraftsView({ crafts, built }: Props) {
   )
 }
 
-function StationRows({ station, rows, open, onToggle, tracking }: {
+function StationRows({ station, rows, open, onToggle, tracking, onOpen }: {
   station: string
   rows: Craft[]
   open: boolean
   onToggle: () => void
   tracking: boolean
+  onOpen: (craft: Craft) => void
 }) {
   return (
     <>
@@ -175,7 +178,7 @@ function StationRows({ station, rows, open, onToggle, tracking }: {
       </tr>
       {open &&
         rows.map((c) => (
-          <tr key={c.id}>
+          <tr key={c.id} className="trade-row" onClick={() => onOpen(c)} title="View unlock requirements">
             <td className="trade-reward">
               <TradeList items={c.reward} />
             </td>
