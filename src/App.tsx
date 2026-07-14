@@ -100,7 +100,7 @@ export default function App() {
   const { quests, stations, ammo, barters, crafts, status, offline, fetchedAt, refresh } = useQuestData()
   const { done, toggle, replaceDone } = useDone()
   const { inventory, setCount, applyDeltas, replaceInventory } = useInventory()
-  const { built, toggleBuilt, replaceBuilt } = useHideout()
+  const { built, replaceBuilt } = useHideout()
   const { progress, setObjective, replaceProgress } = useQuestProgress()
   const { active, toggleActive, clearActive, replaceActive } = useActive()
   const { profile, setPmcLevel, setTraderLevel, replaceProfile } = useProfile()
@@ -189,13 +189,26 @@ export default function App() {
     [active, questById, done, replaceDone, toggleActive],
   )
 
+  // Station levels are cumulative: you can't have Generator 3 without 1 & 2.
+  // So building a level also builds every lower level; un-building removes every
+  // higher level. Inventory is charged/refunded per newly-changed level only.
   const toggleLevel = useCallback(
     (key: string) => {
-      const l = levelByKey.get(key)
-      if (l) applyDeltas(l.items.map((r) => ({ item: r.item, count: r.count })), built.has(key) ? 1 : -1)
-      toggleBuilt(key)
+      const target = levelByKey.get(key)
+      if (!target) return
+      const building = !built.has(key)
+      const siblings = stations.filter((l) => l.stationId === target.stationId)
+      const changed = building
+        ? siblings.filter((l) => l.level <= target.level && !built.has(l.key))
+        : siblings.filter((l) => l.level >= target.level && built.has(l.key))
+      for (const l of changed) {
+        applyDeltas(l.items.map((r) => ({ item: r.item, count: r.count })), building ? -1 : 1)
+      }
+      const next = new Set(built)
+      for (const l of changed) building ? next.add(l.key) : next.delete(l.key)
+      replaceBuilt([...next])
     },
-    [levelByKey, built, applyDeltas, toggleBuilt],
+    [levelByKey, built, stations, applyDeltas, replaceBuilt],
   )
 
   const resetForWipe = () => {
