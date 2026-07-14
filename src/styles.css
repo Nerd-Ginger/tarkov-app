@@ -1444,6 +1444,22 @@ tr.done .quest-link {
   color: #1a1710;
 }
 
+.danger-btn {
+  align-self: flex-start;
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--cat-kill) 55%, transparent);
+  border-radius: 6px;
+  color: var(--cat-kill);
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.danger-btn:hover {
+  background: color-mix(in srgb, var(--cat-kill) 14%, transparent);
+  border-color: var(--cat-kill);
+}
+
 /* ---- active quests ---- */
 
 .active-badge {

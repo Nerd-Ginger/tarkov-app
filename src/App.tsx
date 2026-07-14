@@ -198,6 +198,22 @@ export default function App() {
     [levelByKey, built, applyDeltas, toggleBuilt],
   )
 
+  const resetForWipe = () => {
+    const ok = window.confirm(
+      'Reset all tracked progress for a new wipe?\n\n' +
+        'This clears completed quests, active quests, quest objective progress, ' +
+        'inventory counts, hideout builds, and trader/PMC levels.\n\n' +
+        'This cannot be undone — use Save progress first if you want a backup.',
+    )
+    if (!ok) return
+    replaceDone([])
+    replaceActive([])
+    replaceProgress({})
+    replaceInventory({})
+    replaceBuilt([])
+    replaceProfile({ pmcLevel: 1, traders: {} })
+  }
+
   const saveProgress = () => exportProgress(done, inventory, built, progress, active, profile)
   const loadProgress = () =>
     importProgress((data) => {
@@ -586,6 +602,7 @@ export default function App() {
               traders={barterTraders}
               onSetPmcLevel={setPmcLevel}
               onSetTraderLevel={setTraderLevel}
+              onResetForWipe={resetForWipe}
             />
           </section>
         )}

@@ -6,9 +6,10 @@ interface Props {
   traders: string[]
   onSetPmcLevel: (level: number) => void
   onSetTraderLevel: (trader: string, level: number) => void
+  onResetForWipe: () => void
 }
 
-export function ProfileView({ profile, traders, onSetPmcLevel, onSetTraderLevel }: Props) {
+export function ProfileView({ profile, traders, onSetPmcLevel, onSetTraderLevel, onResetForWipe }: Props) {
   return (
     <div className="profile-view">
       <div className="profile-section">
@@ -54,6 +55,18 @@ export function ProfileView({ profile, traders, onSetPmcLevel, onSetTraderLevel 
             )
           })}
         </div>
+      </div>
+
+      <div className="profile-section">
+        <span className="best-label">New wipe</span>
+        <p className="legend profile-hint">
+          Clears everything you've tracked — completed &amp; active quests, quest progress, inventory, hideout,
+          and trader/PMC levels — for a fresh start. Export a backup with <strong>Save progress</strong> first if
+          you might want it back.
+        </p>
+        <button className="danger-btn" onClick={onResetForWipe}>
+          Reset for wipe
+        </button>
       </div>
     </div>
   )
