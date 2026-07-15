@@ -249,6 +249,8 @@ export interface PriceRow {
   noFlea: boolean
   /** Grid slots (width × height), min 1 — for price-per-slot. */
   slots: number
+  /** Where you can buy it, cheapest first. minLevel 0 = flea/no loyalty gate. */
+  buyFrom: { source: string; price: number; minLevel: number }[]
 }
 
 // ---- intel (trader resets, goons, boss spawns) ----

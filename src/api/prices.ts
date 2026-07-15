@@ -1,7 +1,7 @@
 import type { PriceRow } from '../types'
 
 const API_URL = 'https://api.tarkov.dev/graphql'
-const CACHE_KEY = 'tarkov.prices.v3'
+const CACHE_KEY = 'tarkov.prices.v4'
 export const PRICES_MAX_AGE_MS = 60 * 60 * 1000 // 1h — flea prices move fast
 
 export const ROUBLES_ID = '5449016a4bdc2d6f028b456f'
@@ -21,6 +21,11 @@ const PRICES_QUERY = `{
     changeLast48hPercent
     types
     sellFor { priceRUB source }
+    buyFor {
+      priceRUB
+      source
+      vendor { ... on TraderOffer { minTraderLevel } }
+    }
   }
 }`
 
@@ -37,6 +42,7 @@ interface RawPriceItem {
   changeLast48hPercent: number | null
   types: string[] | null
   sellFor: { priceRUB: number; source: string }[] | null
+  buyFor: { priceRUB: number; source: string; vendor: { minTraderLevel?: number | null } | null }[] | null
 }
 
 export interface PricesCache {
@@ -79,6 +85,7 @@ function trim(raw: RawPriceItem): PriceRow {
       traderName: '',
       noFlea: true,
       slots: 1,
+      buyFrom: [],
     }
   }
   let trader = 0
@@ -97,6 +104,16 @@ function trim(raw: RawPriceItem): PriceRow {
   // without that spread (or with no 24h low/high at all) we don't trust.
   const traded =
     raw.low24hPrice != null && raw.high24hPrice != null && raw.high24hPrice > raw.low24hPrice
+  // Where to buy it: trader offers always count; the flea buy option only when
+  // the item genuinely trades (same guard as the sell price).
+  const buyFrom = (raw.buyFor ?? [])
+    .filter((b) => b.priceRUB > 0 && (b.source !== 'fleaMarket' || traded))
+    .map((b) => ({
+      source: b.source === 'fleaMarket' ? 'Flea' : cap(b.source),
+      price: b.priceRUB,
+      minLevel: b.vendor?.minTraderLevel ?? 0,
+    }))
+    .sort((a, b) => a.price - b.price)
   return {
     id: raw.id,
     name: raw.name,
@@ -108,7 +125,13 @@ function trim(raw: RawPriceItem): PriceRow {
     traderName,
     noFlea: (raw.types ?? []).includes('noFlea'),
     slots,
+    buyFrom,
   }
+}
+
+/** "therapist" → "Therapist" */
+function cap(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s
 }
 
 export async function fetchPrices(): Promise<PricesCache> {

@@ -83,6 +83,23 @@ export function ItemModal({ item, price, usage, onClose, onQuestClick, onBarterC
           <p className="modal-meta">No market price (flea-banned or prices not loaded).</p>
         )}
 
+        {price && price.buyFrom.length > 0 && (
+          <div className="modal-section">
+            <span className="modal-label">Buy from</span>
+            <ul className="buy-list">
+              {price.buyFrom.map((b, i) => (
+                <li key={i}>
+                  <span className="buy-src">
+                    {b.source}
+                    {b.minLevel > 0 && <span className="buy-ll"> LL{b.minLevel}</span>}
+                  </span>
+                  <span className="buy-price">{rub(b.price)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {nothing ? (
           <p className="empty-note">Not used by any tracked quest, hideout build, barter, or craft.</p>
         ) : (

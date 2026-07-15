@@ -1680,6 +1680,38 @@ tr.done .quest-link {
   font-weight: 700;
 }
 
+.buy-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.buy-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.buy-src {
+  color: var(--text);
+}
+
+.buy-ll {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.buy-price {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 /* ---- trader reset banner ---- */
 
 .reset-banner {
