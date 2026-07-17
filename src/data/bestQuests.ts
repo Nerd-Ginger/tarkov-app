@@ -3,6 +3,11 @@ import { isBlocked } from '../filters'
 import { questProgress } from './progress'
 import type { QuestProgress } from '../hooks/useQuestProgress'
 
+/** A quest matches when no maps are selected, or one of its maps is selected. */
+function matchesMap(q: Quest, maps: Set<string>): boolean {
+  return maps.size === 0 || q.maps.some((m) => maps.has(m))
+}
+
 export interface BestQuest {
   quest: Quest
   /** Not-yet-done quests DIRECTLY gated on this one (the next tier). */
@@ -25,6 +30,7 @@ export function bestQuests(
   quests: Quest[],
   done: Set<string>,
   progress: QuestProgress,
+  maps: Set<string>,
   topN = 10,
 ): BestQuest[] {
   const byId = new Map(quests.map((q) => [q.id, q]))
@@ -40,7 +46,9 @@ export function bestQuests(
     }
   }
 
-  const candidates = quests.filter((q) => !done.has(q.id) && !isBlocked(q, done))
+  // Dependents are built from every quest above, so unblock counts stay accurate;
+  // the map filter only limits which quests are shown as candidates.
+  const candidates = quests.filter((q) => !done.has(q.id) && !isBlocked(q, done) && matchesMap(q, maps))
 
   const scored = candidates.map((quest) => {
     const direct = dependents.get(quest.id) ?? []
@@ -93,8 +101,13 @@ export interface RewardQuest {
  * "Best rewards" = the quests you can do RIGHT NOW with the biggest completion
  * payout, ranked by XP (roubles break ties). Reward items ride along for display.
  */
-export function bestRewardQuests(quests: Quest[], done: Set<string>, topN = 10): RewardQuest[] {
-  const candidates = quests.filter((q) => !done.has(q.id) && !isBlocked(q, done))
+export function bestRewardQuests(
+  quests: Quest[],
+  done: Set<string>,
+  maps: Set<string>,
+  topN = 10,
+): RewardQuest[] {
+  const candidates = quests.filter((q) => !done.has(q.id) && !isBlocked(q, done) && matchesMap(q, maps))
   const scored = candidates.map((quest) => ({
     quest,
     xp: quest.xp,

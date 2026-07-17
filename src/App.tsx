@@ -23,7 +23,7 @@ import { QuestModal } from './components/QuestModal'
 import { QuestTree } from './components/QuestTree'
 import { QuestsTable } from './components/QuestsTable'
 import { questHandInItems } from './data/items'
-import { mapSortKey, stationLevelKey, traderSortKey } from './data/normalize'
+import { EVENT_MAPS, isPseudoMap, mapSortKey, stationLevelKey, traderSortKey } from './data/normalize'
 import { exportProgress, importProgress } from './data/progressFile'
 import { EMPTY_FILTERS, isBlocked, matchesAll } from './filters'
 import type { Filters } from './filters'
@@ -129,7 +129,16 @@ export default function App() {
   const [mapsOpen, setMapsOpen] = useState(true)
   const [treeOpen, setTreeOpen] = useState(false)
   const [questsOpen, setQuestsOpen] = useState(true)
+  const [bestMaps, setBestMaps] = useState<Set<string>>(new Set())
   const [view, setView] = useState<View>(readView)
+
+  const toggleBestMap = (m: string) =>
+    setBestMaps((prev) => {
+      const next = new Set(prev)
+      if (next.has(m)) next.delete(m)
+      else next.add(m)
+      return next
+    })
 
   const switchView = (v: View) => {
     setView(v)
@@ -330,8 +339,14 @@ export default function App() {
     return m
   }, [visibleQuests, done])
 
-  const best = useMemo(() => bestQuests(visibleQuests, done, progress), [visibleQuests, done, progress])
-  const bestRewards = useMemo(() => bestRewardQuests(visibleQuests, done), [visibleQuests, done])
+  const best = useMemo(
+    () => bestQuests(visibleQuests, done, progress, bestMaps),
+    [visibleQuests, done, progress, bestMaps],
+  )
+  const bestRewards = useMemo(
+    () => bestRewardQuests(visibleQuests, done, bestMaps),
+    [visibleQuests, done, bestMaps],
+  )
 
   // "What are we doing?" — roll a random quest from everything currently available.
   const rollRandomQuest = useCallback(() => {
@@ -489,6 +504,33 @@ export default function App() {
                 🎲 Random quest
               </button>
             </p>
+            <div className="filter-bar">
+              <div className="filter-row">
+                <span className="filter-label">Maps</span>
+                <div className="chip-group">
+                  {allMaps.map((m) => (
+                    <button
+                      key={m}
+                      className={[
+                        'chip',
+                        bestMaps.has(m) ? 'active' : '',
+                        isPseudoMap(m) ? 'pseudo' : '',
+                        EVENT_MAPS.has(m) ? 'event' : '',
+                      ].join(' ')}
+                      onClick={() => toggleBestMap(m)}
+                    >
+                      {m}
+                      {EVENT_MAPS.has(m) && <span className="event-tag">event</span>}
+                    </button>
+                  ))}
+                  {bestMaps.size > 0 && (
+                    <button className="clear-btn" onClick={() => setBestMaps(new Set())}>
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
             <BestQuests
               best={best}
               rewards={bestRewards}
