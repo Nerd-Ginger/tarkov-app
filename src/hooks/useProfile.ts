@@ -4,7 +4,9 @@ import type { Profile } from '../types'
 const KEY = 'tarkov.profile.v1'
 export const MAX_LOYALTY = 4
 
-const EMPTY: Profile = { pmcLevel: 1, traders: {} }
+// pmcLevel 0 = unset; features that gate by level (Best Quests) treat it as
+// "level unknown, don't hide anything" until the user fills it in.
+const EMPTY: Profile = { pmcLevel: 0, traders: {} }
 
 function read(): Profile {
   try {
@@ -12,7 +14,7 @@ function read(): Profile {
     if (!raw) return EMPTY
     const p = JSON.parse(raw) as Partial<Profile>
     return {
-      pmcLevel: typeof p.pmcLevel === 'number' ? p.pmcLevel : 1,
+      pmcLevel: typeof p.pmcLevel === 'number' ? p.pmcLevel : 0,
       traders: p.traders && typeof p.traders === 'object' ? p.traders : {},
     }
   } catch {
@@ -54,7 +56,7 @@ export function useProfile() {
 
   const replaceProfile = useCallback((p: Profile) => {
     const next: Profile = {
-      pmcLevel: typeof p?.pmcLevel === 'number' ? p.pmcLevel : 1,
+      pmcLevel: typeof p?.pmcLevel === 'number' ? p.pmcLevel : 0,
       traders: p?.traders && typeof p.traders === 'object' ? p.traders : {},
     }
     persist(next)

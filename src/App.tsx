@@ -340,20 +340,24 @@ export default function App() {
   }, [visibleQuests, done])
 
   const best = useMemo(
-    () => bestQuests(visibleQuests, done, progress, bestMaps),
-    [visibleQuests, done, progress, bestMaps],
+    () => bestQuests(visibleQuests, done, progress, bestMaps, profile.pmcLevel),
+    [visibleQuests, done, progress, bestMaps, profile.pmcLevel],
   )
   const bestRewards = useMemo(
-    () => bestRewardQuests(visibleQuests, done, bestMaps),
-    [visibleQuests, done, bestMaps],
+    () => bestRewardQuests(visibleQuests, done, bestMaps, profile.pmcLevel),
+    [visibleQuests, done, bestMaps, profile.pmcLevel],
   )
 
-  // "What are we doing?" — roll a random quest from everything currently available.
+  // "What are we doing?" — roll a random quest from everything currently available
+  // (not done, not blocked, and within the player's level).
   const rollRandomQuest = useCallback(() => {
-    const available = visibleQuests.filter((q) => !done.has(q.id) && !isBlocked(q, done))
+    const lvl = profile.pmcLevel
+    const available = visibleQuests.filter(
+      (q) => !done.has(q.id) && !isBlocked(q, done) && (lvl <= 0 || q.minLevel <= lvl),
+    )
     if (available.length === 0) return
     setDetailQuest(available[Math.floor(Math.random() * available.length)])
-  }, [visibleQuests, done])
+  }, [visibleQuests, done, profile.pmcLevel])
 
   const filterToSeries = useCallback((series: string) => {
     setFilters((f) => ({ ...f, search: series }))

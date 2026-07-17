@@ -2,7 +2,7 @@ import type { Inventory } from '../hooks/useInventory'
 import type { QuestProgress } from '../hooks/useQuestProgress'
 import type { Profile } from '../types'
 
-const DEFAULT_PROFILE: Profile = { pmcLevel: 1, traders: {} }
+const DEFAULT_PROFILE: Profile = { pmcLevel: 0, traders: {} }
 
 export interface ProgressData {
   done: string[]
@@ -76,7 +76,7 @@ export function importProgress(onLoad: (data: ProgressData) => void) {
         const profile: Profile =
           parsed && typeof parsed.profile === 'object' && parsed.profile !== null
             ? {
-                pmcLevel: typeof parsed.profile.pmcLevel === 'number' ? parsed.profile.pmcLevel : 1,
+                pmcLevel: typeof parsed.profile.pmcLevel === 'number' ? parsed.profile.pmcLevel : 0,
                 traders:
                   typeof parsed.profile.traders === 'object' && parsed.profile.traders !== null
                     ? parsed.profile.traders
