@@ -720,7 +720,11 @@ export default function App() {
           · data from tarkov.dev ·{' '}
           <a href={REPO_URL} target="_blank" rel="noreferrer">
             source on GitHub
-          </a>
+          </a>{' '}
+          ·{' '}
+          <span className="app-version" title={__GIT_SHA__ ? `commit ${__GIT_SHA__}` : undefined}>
+            v{__APP_VERSION__} · built {__BUILD_DATE__}
+          </span>
         </footer>
       </div>
     </div>

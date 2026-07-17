@@ -68,6 +68,11 @@ body {
   text-decoration: underline;
 }
 
+.app-version {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
 .sidebar-footer a {
   color: var(--accent);
   text-decoration: none;
