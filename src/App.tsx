@@ -191,7 +191,20 @@ export default function App() {
           stack.push(...pq.blockingRequires)
         }
         const newlyDone = [...ancestors].filter((pid) => !done.has(pid))
-        if (newlyDone.length > 0) replaceDone([...done, ...newlyDone])
+        // Marking a whole chain done is a big, irreversible action — confirm it so
+        // an accidental Active click on a far-ahead quest can't silently complete
+        // dozens of quests you haven't actually done.
+        if (newlyDone.length > 0) {
+          const name = questById.get(id)?.name ?? 'this quest'
+          const ok = window.confirm(
+            `Set "${name}" as active?\n\n` +
+              `This also marks ${newlyDone.length} earlier quest${newlyDone.length === 1 ? '' : 's'} ` +
+              `complete — you can't reach this one without finishing them. Inventory isn't affected.\n\n` +
+              `Cancel if you haven't actually done those quests yet.`,
+          )
+          if (!ok) return
+          replaceDone([...done, ...newlyDone])
+        }
       }
       toggleActive(id)
     },
