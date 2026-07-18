@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import type { BossEscort, Intel } from '../types'
+import type { BossEscort, Intel, MapBosses } from '../types'
 import { ago } from '../data/timeFormat'
+import { useExpandedGroups } from '../hooks/useExpandedGroups'
 
 interface Props {
   intel: Intel
@@ -31,6 +32,7 @@ export function BossesView({ intel, fetchedAt, loading, offline, onRefresh }: Pr
     const t = setInterval(() => setTick((n) => n + 1), 30_000)
     return () => clearInterval(t)
   }, [])
+  const { expanded, toggle, expandAll, collapseAll } = useExpandedGroups('bosses')
 
   const { bossSpawns, goonReports } = intel
 
@@ -61,6 +63,12 @@ export function BossesView({ intel, fetchedAt, loading, offline, onRefresh }: Pr
           <button className="clear-btn" onClick={onRefresh} disabled={loading}>
             {loading ? 'Refreshing…' : 'Refresh intel'}
           </button>
+          <button className="clear-btn" onClick={() => expandAll(bossSpawns.map((m) => m.map))}>
+            Expand all
+          </button>
+          <button className="clear-btn" onClick={collapseAll}>
+            Collapse all
+          </button>
           <span className="flow-hint">
             {fetchedAt && <>intel updated {ago(fetchedAt)}</>}
             {offline && <em className="offline"> · offline, cached</em>}
@@ -89,44 +97,57 @@ export function BossesView({ intel, fetchedAt, loading, offline, onRefresh }: Pr
         <table className="bosses-table">
           <thead>
             <tr>
-              <th>Map</th>
-              <th>Bosses (spawn %)</th>
+              <th>Boss (spawn %)</th>
               <th>Guards</th>
             </tr>
           </thead>
           <tbody>
-            {bossSpawns.map((m) =>
-              m.bosses.map((b, i) => (
-                <tr key={`${m.map}-${b.name}-${i}`}>
-                  {i === 0 && (
-                    <td className="map-name" rowSpan={m.bosses.length}>
-                      {m.map}
-                    </td>
-                  )}
-                  <td>
-                    <span className={`badge boss-badge ${chanceClass(b.chance)}`}>
-                      {b.name} {Math.round(b.chance * 100)}%
-                    </span>
-                  </td>
-                  <td>
-                    {b.escorts.length === 0 ? (
-                      <span className="escort-none">solo</span>
-                    ) : (
-                      <div className="badge-group">
-                        {b.escorts.map((e) => (
-                          <span key={e.name} className="badge escort-badge">
-                            {escortLabel(b.name, e)}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))
-            )}
+            {bossSpawns.map((m) => (
+              <MapBossGroup key={m.map} entry={m} open={expanded.has(m.map)} onToggle={() => toggle(m.map)} />
+            ))}
           </tbody>
         </table>
       </div>
     </div>
+  )
+}
+
+function MapBossGroup({ entry, open, onToggle }: { entry: MapBosses; open: boolean; onToggle: () => void }) {
+  const { map, bosses } = entry
+  return (
+    <>
+      <tr className="caliber-row" onClick={onToggle}>
+        <td colSpan={2}>
+          <span className={`collapse-arrow ${open ? 'open' : ''}`}>&#9654;</span>
+          {map}
+          <span className="caliber-count">
+            {bosses.length} boss{bosses.length === 1 ? '' : 'es'}
+          </span>
+        </td>
+      </tr>
+      {open &&
+        bosses.map((b, i) => (
+          <tr key={`${b.name}-${i}`}>
+            <td>
+              <span className={`badge boss-badge ${chanceClass(b.chance)}`}>
+                {b.name} {Math.round(b.chance * 100)}%
+              </span>
+            </td>
+            <td>
+              {b.escorts.length === 0 ? (
+                <span className="escort-none">solo</span>
+              ) : (
+                <div className="badge-group">
+                  {b.escorts.map((e) => (
+                    <span key={e.name} className="badge escort-badge">
+                      {escortLabel(b.name, e)}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </td>
+          </tr>
+        ))}
+    </>
   )
 }
