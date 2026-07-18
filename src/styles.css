@@ -1200,16 +1200,26 @@ tr.done .quest-link {
   gap: 4px;
 }
 
+/* badge + text on one row, stepper wrapping to its own row underneath —
+   the stepper is nowrap and would otherwise push past the card edge */
 .best-reqs li {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr;
   align-items: baseline;
-  gap: 6px;
+  gap: 4px 6px;
+}
+
+.best-reqs li .obj-stepper {
+  grid-column: 2;
+  margin-left: 0;
 }
 
 .best-req-text {
   font-size: 12px;
   line-height: 1.35;
   color: var(--text);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .best-more {
