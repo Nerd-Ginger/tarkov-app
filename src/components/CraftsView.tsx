@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Craft } from '../types'
+import { useExpandedGroups } from '../hooks/useExpandedGroups'
 import { FirBadge, TradeList } from './TradeParts'
 
 const FILTER_KEY = 'tarkov.craftFilter.v1'
@@ -31,7 +32,7 @@ export function CraftsView({ crafts, built, onOpen }: Props) {
   const [search, setSearch] = useState('')
   const [firOnly, setFirOnly] = useState(false)
   const [hideoutTracking, setHideoutTracking] = useState(() => localStorage.getItem(FILTER_KEY) === '1')
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const { expanded, toggle: toggleGroup, expandAll, collapseAll } = useExpandedGroups('crafts')
 
   useEffect(() => {
     try {
@@ -77,16 +78,7 @@ export function CraftsView({ crafts, built, onOpen }: Props) {
     return [...byStation.entries()].sort((a, b) => a[0].localeCompare(b[0]))
   }, [crafts, search, firOnly, hideoutTracking, maxBuilt])
 
-  const toggleGroup = (s: string) => {
-    setCollapsed((prev) => {
-      const next = new Set(prev)
-      if (next.has(s)) next.delete(s)
-      else next.add(s)
-      return next
-    })
-  }
-
-  const isOpen = (s: string) => search !== '' || !collapsed.has(s)
+  const isOpen = (s: string) => search !== '' || expanded.has(s)
 
   return (
     <div className="trade-view">
@@ -113,8 +105,8 @@ export function CraftsView({ crafts, built, onOpen }: Props) {
             />
             Hideout tracking
           </label>
-          <button className="clear-btn" onClick={() => setCollapsed(new Set())}>Expand all</button>
-          <button className="clear-btn" onClick={() => setCollapsed(new Set(allStations))}>Collapse all</button>
+          <button className="clear-btn" onClick={() => expandAll(allStations)}>Expand all</button>
+          <button className="clear-btn" onClick={collapseAll}>Collapse all</button>
           <span className="flow-hint">✱ = flea-banned item, find in raid</span>
         </div>
       </div>

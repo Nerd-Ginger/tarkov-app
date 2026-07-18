@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { KeyLock, PriceRow } from '../types'
 import { mapSortKey } from '../data/normalize'
+import { useExpandedGroups } from '../hooks/useExpandedGroups'
 
 interface Props {
   keys: KeyLock[]
@@ -33,7 +34,7 @@ function opensLabel(opens: Map<string, number>): string {
 
 export function KeysView({ keys, prices }: Props) {
   const [search, setSearch] = useState('')
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const { expanded, toggle, expandAll, collapseAll } = useExpandedGroups('keys')
 
   // map → deduped key rows (a key can open several locks on one map)
   const groups = useMemo(() => {
@@ -75,14 +76,7 @@ export function KeysView({ keys, prices }: Props) {
     return entries.sort((a, b) => mapSortKey(a.map) - mapSortKey(b.map))
   }, [keys, prices, search])
 
-  const toggle = (map: string) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev)
-      if (next.has(map)) next.delete(map)
-      else next.add(map)
-      return next
-    })
-  const isOpen = (map: string) => search !== '' || !collapsed.has(map)
+  const isOpen = (map: string) => search !== '' || expanded.has(map)
 
   const allMaps = groups.map((g) => g.map)
 
@@ -93,8 +87,8 @@ export function KeysView({ keys, prices }: Props) {
       <div className="filter-bar">
         <div className="filter-row controls">
           <input type="search" placeholder="Search keys…" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <button className="clear-btn" onClick={() => setCollapsed(new Set())}>Expand all</button>
-          <button className="clear-btn" onClick={() => setCollapsed(new Set(allMaps))}>Collapse all</button>
+          <button className="clear-btn" onClick={() => expandAll(allMaps)}>Expand all</button>
+          <button className="clear-btn" onClick={collapseAll}>Collapse all</button>
           <span className="flow-hint">value = key's flea/trader price — a proxy for what's behind the door</span>
         </div>
       </div>

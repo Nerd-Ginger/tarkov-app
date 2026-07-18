@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Ammo } from '../types'
+import { useExpandedGroups } from '../hooks/useExpandedGroups'
 
 type SortField = 'name' | 'damage' | 'pen' | 'armorDamage' | 'fragChance' | 'velocity'
 type SortDir = 'asc' | 'desc'
@@ -50,7 +51,7 @@ export function AmmoView({ ammo }: Props) {
   const [search, setSearch] = useState('')
   const [sortField, setSortField] = useState<SortField | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>('desc')
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const { expanded, toggle: toggleGroup, expandAll, collapseAll } = useExpandedGroups('ammo')
 
   const allCalibers = useMemo(() => {
     const s = new Set(ammo.map((a) => a.caliber))
@@ -59,15 +60,6 @@ export function AmmoView({ ammo }: Props) {
 
   const toggleCaliber = (c: string) => {
     setCalibers((prev) => {
-      const next = new Set(prev)
-      if (next.has(c)) next.delete(c)
-      else next.add(c)
-      return next
-    })
-  }
-
-  const toggleGroup = (c: string) => {
-    setCollapsed((prev) => {
       const next = new Set(prev)
       if (next.has(c)) next.delete(c)
       else next.add(c)
@@ -114,8 +106,8 @@ export function AmmoView({ ammo }: Props) {
   }, [ammo, calibers, search, sortField, sortDir])
 
   const arrow = (f: SortField) => (sortField === f ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '')
-  // searching should reveal matches even inside collapsed groups
-  const isOpen = (c: string) => search !== '' || !collapsed.has(c)
+  // default collapsed; searching reveals matches even inside collapsed groups
+  const isOpen = (c: string) => search !== '' || expanded.has(c)
 
   return (
     <div className="ammo-view">
@@ -137,8 +129,8 @@ export function AmmoView({ ammo }: Props) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <button className="clear-btn" onClick={() => setCollapsed(new Set())}>Expand all</button>
-          <button className="clear-btn" onClick={() => setCollapsed(new Set(allCalibers))}>Collapse all</button>
+          <button className="clear-btn" onClick={() => expandAll(allCalibers)}>Expand all</button>
+          <button className="clear-btn" onClick={collapseAll}>Collapse all</button>
           {(calibers.size > 0 || search) && (
             <button
               className="clear-btn"

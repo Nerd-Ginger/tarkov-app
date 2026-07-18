@@ -3,6 +3,7 @@ import type { Barter, Profile, TraderReset } from '../types'
 import { traderSortKey } from '../data/normalize'
 import { traderLoyalty } from '../hooks/useProfile'
 import { countdown } from '../data/timeFormat'
+import { useExpandedGroups } from '../hooks/useExpandedGroups'
 import { FirBadge, TradeList } from './TradeParts'
 
 const FILTER_KEY = 'tarkov.barterFilter.v1'
@@ -49,7 +50,7 @@ export function BartersView({ barters, profile, done, traderResets, onOpen }: Pr
   const [search, setSearch] = useState('')
   const [firOnly, setFirOnly] = useState(false)
   const [canBuyOnly, setCanBuyOnly] = useState(() => localStorage.getItem(FILTER_KEY) === '1')
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const { expanded, toggle: toggleGroup, expandAll, collapseAll } = useExpandedGroups('barters')
 
   useEffect(() => {
     try {
@@ -86,17 +87,8 @@ export function BartersView({ barters, profile, done, traderResets, onOpen }: Pr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [barters, search, firOnly, canBuyOnly, profile, done])
 
-  const toggleGroup = (t: string) => {
-    setCollapsed((prev) => {
-      const next = new Set(prev)
-      if (next.has(t)) next.delete(t)
-      else next.add(t)
-      return next
-    })
-  }
-
-  // searching should reveal matches even inside collapsed groups
-  const isOpen = (t: string) => search !== '' || !collapsed.has(t)
+  // default collapsed; searching reveals matches even inside collapsed groups
+  const isOpen = (t: string) => search !== '' || expanded.has(t)
 
   return (
     <div className="trade-view">
@@ -120,8 +112,8 @@ export function BartersView({ barters, profile, done, traderResets, onOpen }: Pr
             <input type="checkbox" checked={canBuyOnly} onChange={(e) => setCanBuyOnly(e.target.checked)} />
             Can buy
           </label>
-          <button className="clear-btn" onClick={() => setCollapsed(new Set())}>Expand all</button>
-          <button className="clear-btn" onClick={() => setCollapsed(new Set(allTraders))}>Collapse all</button>
+          <button className="clear-btn" onClick={() => expandAll(allTraders)}>Expand all</button>
+          <button className="clear-btn" onClick={collapseAll}>Collapse all</button>
           <span className="flow-hint">✱ = flea-banned item, find in raid</span>
         </div>
       </div>
