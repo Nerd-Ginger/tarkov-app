@@ -71,6 +71,12 @@ export interface Quest {
   rewardItems: { item: ItemRef; count: number }[]
   /** Trader reputation gained on completion. */
   rewardStanding: { trader: string; standing: number }[]
+  /** Trader offers this quest unlocks for purchase (item + trader loyalty level). */
+  rewardOffers: { item: ItemRef; trader: string; level: number }[]
+  /** Traders this quest unlocks outright (rare — Jaeger, Lightkeeper). */
+  rewardTraderUnlocks: string[]
+  /** Skill levels granted on completion. */
+  rewardSkills: { name: string; level: number }[]
 }
 
 export interface RawObjective {
@@ -106,6 +112,9 @@ export interface RawTask {
   finishRewards?: {
     items: { item: ItemRef; count: number }[]
     traderStanding: { trader: { name: string }; standing: number }[]
+    offerUnlock?: { item: ItemRef; trader: { name: string }; level: number }[] | null
+    traderUnlock?: { name: string }[] | null
+    skillLevelReward?: { name: string; level: number }[] | null
   } | null
 }
 

@@ -2,7 +2,7 @@ import type { RawAmmo, RawBarter, RawCraft, RawHideoutStation, RawMap, RawTask }
 import snapshot from '../data/snapshot.json'
 
 const API_URL = 'https://api.tarkov.dev/graphql'
-const CACHE_KEY = 'tarkov.tasks.v10'
+const CACHE_KEY = 'tarkov.tasks.v11'
 export const CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000 // 12h
 
 /**
@@ -35,6 +35,9 @@ const QUERY = `{
     finishRewards {
       items { item { id name shortName } count }
       traderStanding { trader { name } standing }
+      offerUnlock { item { id name shortName } trader { name } level }
+      traderUnlock { name }
+      skillLevelReward { name level }
     }
   }
   # experience fetched separately: its resolver 500s on one task, and since the

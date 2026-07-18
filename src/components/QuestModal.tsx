@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import type { Quest } from '../types'
+import { ROUBLES_ID } from '../api/prices'
 import { EVENT_MAPS, PSEUDO_MAPS, isPseudoMap } from '../data/normalize'
 import { isTrackable } from '../data/progress'
 import type { QuestProgress } from '../hooks/useQuestProgress'
@@ -17,6 +18,8 @@ interface Props {
   active: Set<string>
   onToggleActive: (id: string) => void
 }
+
+const fmt = (n: number) => n.toLocaleString('en-US')
 
 function MapBadge({ name }: { name: string }) {
   const pseudo = PSEUDO_MAPS[name]
@@ -57,6 +60,14 @@ export function QuestModal({
 
   if (!quest) return null
   const isDone = done.has(quest.id)
+
+  // Roubles are just another reward item — pull them out as the headline payout.
+  const roubles = quest.rewardItems.find((r) => r.item.id === ROUBLES_ID)?.count ?? 0
+  const items = quest.rewardItems.filter((r) => r.item.id !== ROUBLES_ID)
+  const hasUnlocks =
+    quest.rewardTraderUnlocks.length > 0 || quest.rewardOffers.length > 0 || quest.rewardSkills.length > 0
+  const hasRewards =
+    quest.xp > 0 || roubles > 0 || items.length > 0 || quest.rewardStanding.length > 0 || hasUnlocks
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -121,6 +132,56 @@ export function QuestModal({
             ))}
           </ul>
         </div>
+
+        {hasRewards && (
+          <div className="modal-section">
+            <span className="modal-label">Rewards</span>
+            <div className="reward-headline">
+              {quest.xp > 0 && <span className="reward-xp">{fmt(quest.xp)} XP</span>}
+              {roubles > 0 && <span className="reward-money">₽{fmt(roubles)}</span>}
+              {quest.rewardStanding.map((s) => (
+                <span key={s.trader} className={`reward-rep ${s.standing < 0 ? 'neg' : ''}`}>
+                  {s.standing > 0 ? '+' : ''}
+                  {s.standing.toFixed(2)} {s.trader}
+                </span>
+              ))}
+            </div>
+
+            {items.length > 0 && (
+              <div className="badge-group reward-items">
+                {items.map((r) => (
+                  <span key={r.item.id} className="badge reward-item">
+                    {r.count > 1 && <span className="trade-count">{fmt(r.count)}×</span>} {r.item.name}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {hasUnlocks && (
+              <ul className="unlock-rewards">
+                {quest.rewardTraderUnlocks.map((t) => (
+                  <li key={t}>
+                    <span className="unlock-tag trader">Unlocks trader</span> {t}
+                  </li>
+                ))}
+                {quest.rewardOffers.map((o) => (
+                  <li key={o.item.id}>
+                    <span className="unlock-tag">Unlocks barter</span> {o.item.name}
+                    <span className="unlock-src">
+                      {' '}
+                      — {o.trader} LL{o.level}
+                    </span>
+                  </li>
+                ))}
+                {quest.rewardSkills.map((s) => (
+                  <li key={s.name}>
+                    <span className="unlock-tag skill">Skill</span> {s.name} +{s.level}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
         <div className="modal-footer">
           <label className="check-label">

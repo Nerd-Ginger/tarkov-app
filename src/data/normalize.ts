@@ -219,6 +219,13 @@ export function normalizeTasks(tasks: RawTask[]): Quest[] {
         trader: s.trader.name,
         standing: s.standing,
       })),
+      rewardOffers: (t.finishRewards?.offerUnlock ?? []).map((o) => ({
+        item: o.item,
+        trader: o.trader.name,
+        level: o.level,
+      })),
+      rewardTraderUnlocks: (t.finishRewards?.traderUnlock ?? []).map((u) => u.name),
+      rewardSkills: t.finishRewards?.skillLevelReward ?? [],
       requires: (t.taskRequirements ?? []).map((r) => r.task.id),
       blockingRequires: (t.taskRequirements ?? [])
         .filter((r) => (r.status ?? ['complete']).includes('complete'))
