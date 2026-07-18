@@ -88,6 +88,15 @@ export function BestQuests({ best, rewards, done, active, onToggleDone, onQuestC
   const cardProps = { done, active, onToggleDone, onQuestClick }
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
+  // Active quests float to the top, but keep their real rank number so the
+  // ordering they earned is still visible.
+  const activeFirst = <T extends { quest: { id: string } }>(list: T[]) =>
+    list
+      .map((item, i) => ({ item, rank: i + 1 }))
+      .sort((a, b) => Number(active.has(b.item.quest.id)) - Number(active.has(a.item.quest.id)))
+  const bestOrdered = activeFirst(best)
+  const rewardsOrdered = activeFirst(rewards)
+
   return (
     <div className="best-groups">
       <div>
@@ -96,11 +105,11 @@ export function BestQuests({ best, rewards, done, active, onToggleDone, onQuestC
           <p className="empty-note">Nothing left to unblock — every remaining quest is already available.</p>
         ) : (
           <div className="best-grid">
-            {best.map(({ quest: q, unblocks, unlocked, chainTotal }, i) => (
+            {bestOrdered.map(({ item: { quest: q, unblocks, unlocked, chainTotal }, rank }) => (
               <Card
                 key={q.id}
                 quest={q}
-                rank={i + 1}
+                rank={rank}
                 highlight={
                   <div>
                     <button
@@ -174,11 +183,11 @@ export function BestQuests({ best, rewards, done, active, onToggleDone, onQuestC
           <p className="empty-note">No available quests to rank.</p>
         ) : (
           <div className="best-grid">
-            {rewards.map(({ quest: q, xp, roubles }, i) => (
+            {rewardsOrdered.map(({ item: { quest: q, xp, roubles }, rank }) => (
               <Card
                 key={q.id}
                 quest={q}
-                rank={i + 1}
+                rank={rank}
                 highlight={
                   <div className="best-xp" title="Completion XP · roubles reward">
                     <strong>{xp.toLocaleString()}</strong> XP

@@ -52,9 +52,11 @@ export function QuestsTable({ quests, done, active, onToggleDone, onQuestClick, 
   const [sortDir, setSortDir] = useState<SortDir>('asc')
 
   const sorted = useMemo(() => {
-    if (!sortField) return quests
-    return [...quests].sort(comparator(sortField, sortDir))
-  }, [quests, sortField, sortDir])
+    const base = sortField ? [...quests].sort(comparator(sortField, sortDir)) : [...quests]
+    // Quests you're actively running pin to the top, whatever the sort. Array.sort
+    // is stable, so the chosen ordering is preserved within each group.
+    return base.sort((a, b) => Number(active.has(b.id)) - Number(active.has(a.id)))
+  }, [quests, sortField, sortDir, active])
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {

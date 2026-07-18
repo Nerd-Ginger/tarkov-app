@@ -11,10 +11,11 @@ interface Props {
   quests: Quest[]
   filters: Filters
   done: Set<string>
+  active: Set<string>
   onQuestClick: (quest: Quest) => void
 }
 
-export function MapsSection({ quests, filters, done, onQuestClick }: Props) {
+export function MapsSection({ quests, filters, done, active, onQuestClick }: Props) {
   const [sortField, setSortField] = useState<MapSortField | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>('asc')
 
@@ -83,7 +84,10 @@ export function MapsSection({ quests, filters, done, onQuestClick }: Props) {
       <tbody>
         {rows.map(([map, list]) => {
           const remaining = list.filter((q) => !done.has(q.id))
-          const shown = filters.hideDone ? remaining : list
+          // active quests first so what you're running is easy to spot per map
+          const shown = (filters.hideDone ? remaining : list)
+            .slice()
+            .sort((a, b) => Number(active.has(b.id)) - Number(active.has(a.id)))
           const pseudo = PSEUDO_MAPS[map]
           return (
             <tr
@@ -105,10 +109,11 @@ export function MapsSection({ quests, filters, done, onQuestClick }: Props) {
                   {shown.map((q) => (
                     <button
                       key={q.id}
-                      className={`quest-chip ${done.has(q.id) ? 'done' : ''}`}
-                      title={`${q.trader} · Lv ${q.minLevel}${q.kappa ? ' · Kappa' : ''} — click for details`}
+                      className={`quest-chip ${done.has(q.id) ? 'done' : ''} ${active.has(q.id) ? 'active-chip' : ''}`}
+                      title={`${q.trader} · Lv ${q.minLevel}${q.kappa ? ' · Kappa' : ''}${active.has(q.id) ? ' · Active' : ''} — click for details`}
                       onClick={() => onQuestClick(q)}
                     >
+                      {active.has(q.id) && '▶ '}
                       {q.name}
                     </button>
                   ))}

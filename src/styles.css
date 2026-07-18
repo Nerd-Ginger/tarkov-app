@@ -658,6 +658,12 @@ tbody tr:hover {
   color: var(--done);
 }
 
+.quest-chip.active-chip {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
 /* quests table */
 
 .done-col {

@@ -583,7 +583,13 @@ export default function App() {
                     <strong>Arena</strong> = Arena mode. <strong className="warn-text">Map unknown</strong> = tied to a place
                     the data didn't name — check the wiki. <strong>No raid needed</strong> = hand-ins &amp; builds.
                   </p>
-                  <MapsSection quests={visibleQuests} filters={filters} done={done} onQuestClick={setDetailQuest} />
+                  <MapsSection
+                    quests={visibleQuests}
+                    filters={filters}
+                    done={done}
+                    active={active}
+                    onQuestClick={setDetailQuest}
+                  />
                 </>
               )}
             </section>
