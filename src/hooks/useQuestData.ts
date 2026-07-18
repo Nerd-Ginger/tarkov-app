@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CACHE_MAX_AGE_MS, SNAPSHOT, fetchTasks, readCache } from '../api/tarkovDev'
 import type { TaskCache } from '../api/tarkovDev'
-import { normalizeAmmo, normalizeBarters, normalizeCrafts, normalizeStations, normalizeTasks } from '../data/normalize'
+import {
+  normalizeAmmo,
+  normalizeBarters,
+  normalizeCrafts,
+  normalizeKeys,
+  normalizeStations,
+  normalizeTasks,
+} from '../data/normalize'
 
 export type LoadStatus = 'loading' | 'ready' | 'error'
 
@@ -40,6 +47,18 @@ export function useQuestData() {
   const ammo = useMemo(() => (cache ? normalizeAmmo(cache.ammo ?? []) : []), [cache])
   const barters = useMemo(() => (cache ? normalizeBarters(cache.barters ?? []) : []), [cache])
   const crafts = useMemo(() => (cache ? normalizeCrafts(cache.crafts ?? []) : []), [cache])
+  const keys = useMemo(() => (cache ? normalizeKeys(cache.maps ?? []) : []), [cache])
 
-  return { quests, stations, ammo, barters, crafts, status, offline, fetchedAt: cache?.fetchedAt ?? null, refresh }
+  return {
+    quests,
+    stations,
+    ammo,
+    barters,
+    crafts,
+    keys,
+    status,
+    offline,
+    fetchedAt: cache?.fetchedAt ?? null,
+    refresh,
+  }
 }

@@ -253,6 +253,31 @@ export interface PriceRow {
   buyFrom: { source: string; price: number; minLevel: number }[]
 }
 
+// ---- keys / locks ----
+
+export interface RawLock {
+  lockType: string
+  needsPower: boolean
+  key: { id: string; name: string; shortName: string; wikiLink: string } | null
+}
+
+export interface RawMap {
+  name: string
+  locks: RawLock[] | null
+}
+
+/** One key→lock relationship on a map. */
+export interface KeyLock {
+  map: string
+  keyId: string
+  keyName: string
+  keyShort: string
+  keyWiki: string
+  /** door | trunk | container | switch */
+  lockType: string
+  needsPower: boolean
+}
+
 // ---- intel (trader resets, goons, boss spawns) ----
 
 export interface TraderReset {

@@ -3,12 +3,14 @@ import type {
   Ammo,
   Barter,
   Craft,
+  KeyLock,
   ObjectiveCategory,
   Quest,
   RawAmmo,
   RawBarter,
   RawCraft,
   RawHideoutStation,
+  RawMap,
   RawTask,
   RawTradeItem,
   StationLevel,
@@ -378,4 +380,30 @@ export function normalizeCrafts(crafts: RawCraft[]): Craft[] {
       (a.reward[0]?.item.name ?? '').localeCompare(b.reward[0]?.item.name ?? ''),
   )
   return rows
+}
+
+// ---- keys / locks ----
+
+/**
+ * Flatten every map's locks into key→lock rows, merging map variants (Night
+ * Factory → Factory, etc.) so a key's doors group under one map name.
+ */
+export function normalizeKeys(maps: RawMap[]): KeyLock[] {
+  const out: KeyLock[] = []
+  for (const m of maps) {
+    const map = normalizeMapName(m.name)
+    for (const l of m.locks ?? []) {
+      if (!l.key) continue
+      out.push({
+        map,
+        keyId: l.key.id,
+        keyName: l.key.name,
+        keyShort: l.key.shortName,
+        keyWiki: l.key.wikiLink,
+        lockType: l.lockType,
+        needsPower: l.needsPower,
+      })
+    }
+  }
+  return out
 }

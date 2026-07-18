@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AmmoView } from './components/AmmoView'
 import { BossesView } from './components/BossesView'
 import { FireSaleView } from './components/FireSaleView'
+import { KeysView } from './components/KeysView'
 import { ItemModal } from './components/ItemModal'
 import { BartersView } from './components/BartersView'
 import { BestQuests } from './components/BestQuests'
@@ -49,6 +50,7 @@ type View =
   | 'barters'
   | 'crafts'
   | 'firesale'
+  | 'keys'
   | 'bosses'
   | 'ammo'
   | 'profile'
@@ -61,6 +63,7 @@ const VIEWS: { id: View; label: string }[] = [
   { id: 'barters', label: 'Barter' },
   { id: 'crafts', label: 'Crafts' },
   { id: 'firesale', label: 'Fire Sale' },
+  { id: 'keys', label: 'Keys' },
   { id: 'bosses', label: 'Bosses' },
   { id: 'ammo', label: 'Ammo' },
   { id: 'profile', label: 'Profile' },
@@ -73,13 +76,14 @@ const OTHER_VIEWS = new Set<string>([
   'barters',
   'crafts',
   'firesale',
+  'keys',
   'bosses',
   'ammo',
   'profile',
 ])
 
 /** Views that show flea prices — visiting one triggers the lazy price fetch. */
-const PRICE_VIEWS = new Set<View>(['items', 'barters', 'crafts', 'firesale'])
+const PRICE_VIEWS = new Set<View>(['items', 'barters', 'crafts', 'firesale', 'keys'])
 /** Views that need trader-reset / goon / boss intel. */
 const INTEL_VIEWS = new Set<View>(['barters', 'bosses'])
 
@@ -97,7 +101,7 @@ function timeAgo(ts: number): string {
 }
 
 export default function App() {
-  const { quests, stations, ammo, barters, crafts, status, offline, fetchedAt, refresh } = useQuestData()
+  const { quests, stations, ammo, barters, crafts, keys, status, offline, fetchedAt, refresh } = useQuestData()
   const { done, toggle, replaceDone } = useDone()
   const { inventory, setCount, applyDeltas, replaceInventory } = useInventory()
   const { built, replaceBuilt } = useHideout()
@@ -707,6 +711,18 @@ export default function App() {
               onRefresh={() => void refreshPrices()}
               onItemClick={setItemModal}
             />
+          </section>
+        )}
+
+        {view === 'keys' && (
+          <section>
+            <h2>Keys</h2>
+            <p className="legend">
+              Every key by the map it's used on, and what it opens (doors, trunks, containers). ⚡ means the lock
+              needs power switched on. <strong>Value</strong> is the key's flea/trader price — a rough proxy for
+              what's behind the door; hit <strong>loot ↗</strong> for the wiki's exact room contents.
+            </p>
+            <KeysView keys={keys} prices={pricesById} />
           </section>
         )}
 
