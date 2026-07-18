@@ -295,9 +295,16 @@ export interface GoonReport {
   seenAt: number
 }
 
+export interface BossEscort {
+  name: string
+  /** Smallest / largest group size that can spawn (identical when fixed). */
+  min: number
+  max: number
+}
+
 export interface MapBosses {
   map: string
-  bosses: { name: string; chance: number }[]
+  bosses: { name: string; chance: number; escorts: BossEscort[] }[]
 }
 
 export interface Intel {

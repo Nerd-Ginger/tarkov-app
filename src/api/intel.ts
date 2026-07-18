@@ -1,19 +1,34 @@
-import type { Intel } from '../types'
+import type { BossEscort, Intel } from '../types'
 
 const API_URL = 'https://api.tarkov.dev/graphql'
-const CACHE_KEY = 'tarkov.intel.v1'
+const CACHE_KEY = 'tarkov.intel.v2'
 export const INTEL_MAX_AGE_MS = 10 * 60 * 1000 // 10 min — goon reports move; resets are absolute
 
 const INTEL_QUERY = `{
   traders(gameMode: pve) { name resetTime }
   goonReports { map { name } timestamp }
-  maps(gameMode: pve) { name bosses { boss { name } spawnChance } }
+  maps(gameMode: pve) {
+    name
+    bosses {
+      boss { name }
+      spawnChance
+      escorts { boss { name } amount { count chance } }
+    }
+  }
 }`
+
+interface RawBossSlot {
+  boss: { name: string } | null
+  spawnChance: number | null
+  escorts:
+    | { boss: { name: string } | null; amount: { count: number | null; chance: number | null }[] | null }[]
+    | null
+}
 
 interface RawIntel {
   traders: { name: string; resetTime: string | null }[] | null
   goonReports: { map: { name: string } | null; timestamp: string | null }[] | null
-  maps: { name: string; bosses: { boss: { name: string } | null; spawnChance: number | null }[] | null }[] | null
+  maps: { name: string; bosses: RawBossSlot[] | null }[] | null
 }
 
 export interface IntelCache {
@@ -44,6 +59,27 @@ function writeIntelCache(cache: IntelCache) {
 // Real open-world traders that actually restock (drop Fence-variants, BTR, etc. handled by keeping only known set)
 const TRADER_ORDER = ['Prapor', 'Therapist', 'Fence', 'Skier', 'Peacekeeper', 'Mechanic', 'Ragman', 'Jaeger', 'Ref']
 
+/**
+ * Fold one slot's escorts into the running per-boss tally. `amount` is a
+ * probability distribution over group sizes, so we keep the range of sizes
+ * that can actually turn up (chance > 0) and widen it across duplicate slots.
+ */
+function mergeEscorts(into: Map<string, BossEscort>, escorts: RawBossSlot['escorts']) {
+  for (const e of escorts ?? []) {
+    const name = e.boss?.name
+    if (!name) continue
+    const counts = (e.amount ?? [])
+      .filter((a) => a.count != null && (a.chance ?? 0) > 0)
+      .map((a) => a.count!)
+    if (counts.length === 0) continue
+    const min = Math.min(...counts)
+    const max = Math.max(...counts)
+    if (max === 0) continue
+    const prev = into.get(name)
+    into.set(name, prev ? { name, min: Math.min(prev.min, min), max: Math.max(prev.max, max) } : { name, min, max })
+  }
+}
+
 function normalize(raw: RawIntel): Intel {
   const traderResets = (raw.traders ?? [])
     .filter((t) => t.resetTime && TRADER_ORDER.includes(t.name))
@@ -58,16 +94,19 @@ function normalize(raw: RawIntel): Intel {
   const bossSpawns = (raw.maps ?? [])
     .map((m) => {
       // dedupe boss slots, keep the max spawn chance per named boss
-      const byName = new Map<string, number>()
+      const byName = new Map<string, { chance: number; escorts: Map<string, BossEscort> }>()
       for (const b of m.bosses ?? []) {
         const name = b.boss?.name
         if (!name || b.spawnChance == null) continue
-        byName.set(name, Math.max(byName.get(name) ?? 0, b.spawnChance))
+        const entry = byName.get(name) ?? { chance: 0, escorts: new Map() }
+        entry.chance = Math.max(entry.chance, b.spawnChance)
+        mergeEscorts(entry.escorts, b.escorts)
+        byName.set(name, entry)
       }
       return {
         map: m.name,
         bosses: [...byName.entries()]
-          .map(([name, chance]) => ({ name, chance }))
+          .map(([name, { chance, escorts }]) => ({ name, chance, escorts: [...escorts.values()] }))
           .sort((a, b) => b.chance - a.chance),
       }
     })

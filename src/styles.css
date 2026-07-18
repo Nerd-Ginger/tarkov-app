@@ -1875,6 +1875,22 @@ tr.done .quest-link {
   color: var(--text-dim);
 }
 
+.escort-badge {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+.escort-none {
+  font-size: 11px;
+  color: var(--text-dim);
+  opacity: 0.7;
+}
+
+/* boss rows share a map cell — keep the map name pinned to the first row */
+.bosses-table .map-name {
+  vertical-align: top;
+}
+
 /* unlock-requirements checklist in the trade modal */
 
 .req-list {

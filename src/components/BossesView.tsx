@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Intel } from '../types'
+import type { BossEscort, Intel } from '../types'
 import { ago } from '../data/timeFormat'
 
 interface Props {
@@ -11,6 +11,12 @@ interface Props {
 }
 
 const GOON_MAPS = new Set(['Customs', 'Woods', 'Lighthouse', 'Shoreline'])
+
+/** "4 Reshala Guard", "0–2 more" for a same-name escort (rogue PMC squads). */
+function escortLabel(bossName: string, e: BossEscort): string {
+  const count = e.min === e.max ? `${e.max}` : `${e.min}–${e.max}`
+  return e.name === bossName ? `${count} more` : `${count} ${e.name}`
+}
 
 function chanceClass(chance: number): string {
   if (chance >= 0.66) return 'chance-high'
@@ -76,29 +82,48 @@ export function BossesView({ intel, fetchedAt, loading, offline, onRefresh }: Pr
       </div>
 
       <h3 className="best-group-title">Boss spawn chances</h3>
+      <p className="legend">
+        Guard counts are per boss. A range means the squad size varies raid to raid.
+      </p>
       <div className="table-wrap">
         <table className="bosses-table">
           <thead>
             <tr>
               <th>Map</th>
               <th>Bosses (spawn %)</th>
+              <th>Guards</th>
             </tr>
           </thead>
           <tbody>
-            {bossSpawns.map((m) => (
-              <tr key={m.map}>
-                <td className="map-name">{m.map}</td>
-                <td>
-                  <div className="badge-group">
-                    {m.bosses.map((b) => (
-                      <span key={b.name} className={`badge boss-badge ${chanceClass(b.chance)}`}>
-                        {b.name} {Math.round(b.chance * 100)}%
-                      </span>
-                    ))}
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {bossSpawns.map((m) =>
+              m.bosses.map((b, i) => (
+                <tr key={`${m.map}-${b.name}-${i}`}>
+                  {i === 0 && (
+                    <td className="map-name" rowSpan={m.bosses.length}>
+                      {m.map}
+                    </td>
+                  )}
+                  <td>
+                    <span className={`badge boss-badge ${chanceClass(b.chance)}`}>
+                      {b.name} {Math.round(b.chance * 100)}%
+                    </span>
+                  </td>
+                  <td>
+                    {b.escorts.length === 0 ? (
+                      <span className="escort-none">solo</span>
+                    ) : (
+                      <div className="badge-group">
+                        {b.escorts.map((e) => (
+                          <span key={e.name} className="badge escort-badge">
+                            {escortLabel(b.name, e)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
