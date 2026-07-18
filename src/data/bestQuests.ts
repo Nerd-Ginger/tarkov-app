@@ -1,12 +1,7 @@
 import type { Quest } from '../types'
 import { isBlocked } from '../filters'
-import { questProgress } from './progress'
+import { matchesMapNeeded, questProgress } from './progress'
 import type { QuestProgress } from '../hooks/useQuestProgress'
-
-/** A quest matches when no maps are selected, or one of its maps is selected. */
-function matchesMap(q: Quest, maps: Set<string>): boolean {
-  return maps.size === 0 || q.maps.some((m) => maps.has(m))
-}
 
 /** Within the player's level (0 = unknown, don't gate). */
 function withinLevel(q: Quest, pmcLevel: number): boolean {
@@ -55,7 +50,11 @@ export function bestQuests(
   // Dependents are built from every quest above, so unblock counts stay accurate;
   // the map/level filters only limit which quests are shown as candidates.
   const candidates = quests.filter(
-    (q) => !done.has(q.id) && !isBlocked(q, done) && withinLevel(q, pmcLevel) && matchesMap(q, maps),
+    (q) =>
+      !done.has(q.id) &&
+      !isBlocked(q, done) &&
+      withinLevel(q, pmcLevel) &&
+      matchesMapNeeded(q, maps, progress, done),
   )
 
   const scored = candidates.map((quest) => {
@@ -112,12 +111,17 @@ export interface RewardQuest {
 export function bestRewardQuests(
   quests: Quest[],
   done: Set<string>,
+  progress: QuestProgress,
   maps: Set<string>,
   pmcLevel: number,
   topN = 10,
 ): RewardQuest[] {
   const candidates = quests.filter(
-    (q) => !done.has(q.id) && !isBlocked(q, done) && withinLevel(q, pmcLevel) && matchesMap(q, maps),
+    (q) =>
+      !done.has(q.id) &&
+      !isBlocked(q, done) &&
+      withinLevel(q, pmcLevel) &&
+      matchesMapNeeded(q, maps, progress, done),
   )
   const scored = candidates.map((quest) => ({
     quest,

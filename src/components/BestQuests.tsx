@@ -5,6 +5,7 @@ import { EVENT_MAPS, PSEUDO_MAPS, isPseudoMap } from '../data/normalize'
 import { isTrackable, questProgress } from '../data/progress'
 import type { QuestProgress } from '../hooks/useQuestProgress'
 import { LightkeeperMark } from './LightkeeperMark'
+import { ObjectiveCheck } from './ObjectiveCheck'
 import { ObjectiveStepper } from './ObjectiveStepper'
 
 interface Props {
@@ -157,10 +158,21 @@ export function BestQuests({ best, rewards, done, active, onToggleDone, onQuestC
                       .slice(0, 4)
                       .map((o, j) => (
                         <li key={j}>
+                          <ObjectiveCheck
+                            objective={o}
+                            value={progress[o.id] ?? 0}
+                            questDone={done.has(q.id)}
+                            onChange={onSetProgress}
+                          />
                           <span className={`badge cat-${o.category.replace(/[^a-zA-Z]/g, '')}`}>{o.category}</span>
                           <span className="best-req-text">{o.description}</span>
                           {isTrackable(o) && (
-                            <ObjectiveStepper objective={o} value={progress[o.id] ?? 0} onChange={onSetProgress} />
+                            <ObjectiveStepper
+                              objective={o}
+                              value={progress[o.id] ?? 0}
+                              questDone={done.has(q.id)}
+                              onChange={onSetProgress}
+                            />
                           )}
                         </li>
                       ))}

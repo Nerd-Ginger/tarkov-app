@@ -3,6 +3,8 @@ import type { Quest } from '../types'
 import { EVENT_MAPS, PSEUDO_MAPS, isPseudoMap, mapSortKey } from '../data/normalize'
 import { isBlocked, matchesNonMap } from '../filters'
 import type { Filters } from '../filters'
+import { mapCleared } from '../data/progress'
+import type { QuestProgress } from '../hooks/useQuestProgress'
 
 type MapSortField = 'map' | 'left' | 'total'
 type SortDir = 'asc' | 'desc'
@@ -11,11 +13,12 @@ interface Props {
   quests: Quest[]
   filters: Filters
   done: Set<string>
+  progress: QuestProgress
   active: Set<string>
   onQuestClick: (quest: Quest) => void
 }
 
-export function MapsSection({ quests, filters, done, active, onQuestClick }: Props) {
+export function MapsSection({ quests, filters, done, progress, active, onQuestClick }: Props) {
   const [sortField, setSortField] = useState<MapSortField | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>('asc')
 
@@ -26,6 +29,9 @@ export function MapsSection({ quests, filters, done, active, onQuestClick }: Pro
       if (filters.hideBlocked && isBlocked(q, done)) continue
       for (const m of q.maps) {
         if (filters.maps.size > 0 && !filters.maps.has(m)) continue
+        // a map row means "what I still need this map for" — drop quests whose
+        // work here is finished. Done quests keep their chips so Left n/total holds.
+        if (!done.has(q.id) && mapCleared(q, m, progress, done)) continue
         let list = byMap.get(m)
         if (!list) byMap.set(m, (list = []))
         list.push(q)
@@ -51,7 +57,7 @@ export function MapsSection({ quests, filters, done, active, onQuestClick }: Pro
       })
     }
     return entries
-  }, [quests, filters, sortField, sortDir, done])
+  }, [quests, filters, sortField, sortDir, done, progress])
 
   const handleSort = (field: MapSortField) => {
     if (sortField === field) {

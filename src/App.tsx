@@ -325,11 +325,11 @@ export default function App() {
   }, [visibleQuests])
 
   const filteredQuests = useMemo(() => {
-    let list = visibleQuests.filter((q) => matchesAll(q, filters))
+    let list = visibleQuests.filter((q) => matchesAll(q, filters, { progress, done }))
     if (filters.hideDone) list = list.filter((q) => !done.has(q.id))
     if (filters.hideBlocked) list = list.filter((q) => !isBlocked(q, done))
     return list
-  }, [visibleQuests, filters, done])
+  }, [visibleQuests, filters, done, progress])
 
   const doneCount = useMemo(
     () => visibleQuests.filter((q) => done.has(q.id)).length,
@@ -361,8 +361,8 @@ export default function App() {
     [visibleQuests, done, progress, bestMaps, profile.pmcLevel],
   )
   const bestRewards = useMemo(
-    () => bestRewardQuests(visibleQuests, done, bestMaps, profile.pmcLevel),
-    [visibleQuests, done, bestMaps, profile.pmcLevel],
+    () => bestRewardQuests(visibleQuests, done, progress, bestMaps, profile.pmcLevel),
+    [visibleQuests, done, progress, bestMaps, profile.pmcLevel],
   )
 
   // "What are we doing?" — roll a random quest from everything currently available
@@ -587,6 +587,7 @@ export default function App() {
                     quests={visibleQuests}
                     filters={filters}
                     done={done}
+                    progress={progress}
                     active={active}
                     onQuestClick={setDetailQuest}
                   />

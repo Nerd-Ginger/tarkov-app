@@ -1,4 +1,12 @@
 import type { ObjectiveCategory, Quest } from './types'
+import type { QuestProgress } from './hooks/useQuestProgress'
+import { matchesMapNeeded } from './data/progress'
+
+/** Completion state the map filter needs to know "am I done with this map?". */
+export interface MapProgressCtx {
+  progress: QuestProgress
+  done: Set<string>
+}
 
 export interface Filters {
   maps: Set<string>
@@ -47,8 +55,7 @@ export function matchesNonMap(q: Quest, f: Filters): boolean {
   return true
 }
 
-export function matchesAll(q: Quest, f: Filters): boolean {
+export function matchesAll(q: Quest, f: Filters, ctx: MapProgressCtx): boolean {
   if (!matchesNonMap(q, f)) return false
-  if (f.maps.size > 0 && !q.maps.some((m) => f.maps.has(m))) return false
-  return true
+  return matchesMapNeeded(q, f.maps, ctx.progress, ctx.done)
 }

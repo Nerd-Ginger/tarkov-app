@@ -2,9 +2,10 @@ import { useEffect } from 'react'
 import type { Quest } from '../types'
 import { ROUBLES_ID } from '../api/prices'
 import { EVENT_MAPS, PSEUDO_MAPS, isPseudoMap } from '../data/normalize'
-import { isTrackable } from '../data/progress'
+import { isCheckable, isTrackable } from '../data/progress'
 import type { QuestProgress } from '../hooks/useQuestProgress'
 import { LightkeeperMark } from './LightkeeperMark'
+import { ObjectiveCheck } from './ObjectiveCheck'
 import { ObjectiveStepper } from './ObjectiveStepper'
 
 interface Props {
@@ -111,6 +112,16 @@ export function QuestModal({
           <ul className="objective-list">
             {quest.objectives.map((o, i) => (
               <li key={i} className={o.optional ? 'optional' : ''}>
+                {isCheckable(o) ? (
+                  <ObjectiveCheck
+                    objective={o}
+                    value={progress[o.id] ?? 0}
+                    questDone={isDone}
+                    onChange={onSetProgress}
+                  />
+                ) : (
+                  <span className="obj-check-spacer" />
+                )}
                 <span className={`badge cat-${o.category.replace(/[^a-zA-Z]/g, '')}`}>{o.category}</span>
                 <span className="objective-text">
                   {o.description}
@@ -118,7 +129,12 @@ export function QuestModal({
                 </span>
                 {isTrackable(o) && (
                   <div className="objective-progress">
-                    <ObjectiveStepper objective={o} value={progress[o.id] ?? 0} onChange={onSetProgress} />
+                    <ObjectiveStepper
+                      objective={o}
+                      value={progress[o.id] ?? 0}
+                      questDone={isDone}
+                      onChange={onSetProgress}
+                    />
                   </div>
                 )}
                 {o.maps.length > 0 && (
