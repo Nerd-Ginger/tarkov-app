@@ -19,6 +19,8 @@ interface KeyRow {
   slots: number
 }
 
+const MAP_BASE_URL = 'https://tarkov.dev/map/'
+
 const rub = (n: number | null) => (n == null ? '—' : `₽${Math.round(n).toLocaleString()}`)
 
 /** "3 doors · 1 trunk" from the lockType→count map. */
@@ -36,7 +38,9 @@ export function KeysView({ keys, prices }: Props) {
   // map → deduped key rows (a key can open several locks on one map)
   const groups = useMemo(() => {
     const byMap = new Map<string, Map<string, KeyRow>>()
+    const slugByMap: Record<string, string> = {}
     for (const k of keys) {
+      if (k.mapSlug) slugByMap[k.map] = k.mapSlug
       let mapKeys = byMap.get(k.map)
       if (!mapKeys) byMap.set(k.map, (mapKeys = new Map()))
       let row = mapKeys.get(k.keyId)
@@ -59,16 +63,16 @@ export function KeysView({ keys, prices }: Props) {
     }
 
     const s = search.trim().toLowerCase()
-    const entries: [string, KeyRow[]][] = []
+    const entries: { map: string; slug: string; rows: KeyRow[] }[] = []
     for (const [map, mapKeys] of byMap) {
       let rows = [...mapKeys.values()]
       if (s) rows = rows.filter((r) => r.name.toLowerCase().includes(s) || r.short.toLowerCase().includes(s))
       if (rows.length === 0) continue
       // most valuable first — the "value behind the door" proxy
       rows.sort((a, b) => (b.value ?? 0) - (a.value ?? 0) || a.name.localeCompare(b.name))
-      entries.push([map, rows])
+      entries.push({ map, slug: slugByMap[map] ?? '', rows })
     }
-    return entries.sort((a, b) => mapSortKey(a[0]) - mapSortKey(b[0]))
+    return entries.sort((a, b) => mapSortKey(a.map) - mapSortKey(b.map))
   }, [keys, prices, search])
 
   const toggle = (map: string) =>
@@ -80,7 +84,7 @@ export function KeysView({ keys, prices }: Props) {
     })
   const isOpen = (map: string) => search !== '' || !collapsed.has(map)
 
-  const allMaps = groups.map(([m]) => m)
+  const allMaps = groups.map((g) => g.map)
 
   if (keys.length === 0) return <p className="empty-note">No key data loaded.</p>
 
@@ -107,8 +111,8 @@ export function KeysView({ keys, prices }: Props) {
             </tr>
           </thead>
           <tbody>
-            {groups.map(([map, rows]) => (
-              <MapKeys key={map} map={map} rows={rows} open={isOpen(map)} onToggle={() => toggle(map)} />
+            {groups.map(({ map, slug, rows }) => (
+              <MapKeys key={map} map={map} slug={slug} rows={rows} open={isOpen(map)} onToggle={() => toggle(map)} />
             ))}
           </tbody>
         </table>
@@ -118,7 +122,13 @@ export function KeysView({ keys, prices }: Props) {
   )
 }
 
-function MapKeys({ map, rows, open, onToggle }: { map: string; rows: KeyRow[]; open: boolean; onToggle: () => void }) {
+function MapKeys({ map, slug, rows, open, onToggle }: {
+  map: string
+  slug: string
+  rows: KeyRow[]
+  open: boolean
+  onToggle: () => void
+}) {
   return (
     <>
       <tr className="caliber-row" onClick={onToggle}>
@@ -126,6 +136,18 @@ function MapKeys({ map, rows, open, onToggle }: { map: string; rows: KeyRow[]; o
           <span className={`collapse-arrow ${open ? 'open' : ''}`}>&#9654;</span>
           {map}
           <span className="caliber-count">{rows.length} key{rows.length === 1 ? '' : 's'}</span>
+          {slug && (
+            <a
+              className="map-link"
+              href={`${MAP_BASE_URL}${slug}`}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title={`Interactive ${map} map — every key location plotted`}
+            >
+              🗺 map ↗
+            </a>
+          )}
         </td>
       </tr>
       {open &&
@@ -140,8 +162,14 @@ function MapKeys({ map, rows, open, onToggle }: { map: string; rows: KeyRow[]; o
             <td className="num-col">{r.value != null ? rub(r.value / r.slots) : '—'}</td>
             <td>
               {r.wiki && (
-                <a className="wiki-link key-wiki" href={r.wiki} target="_blank" rel="noreferrer">
-                  loot ↗
+                <a
+                  className="wiki-link key-wiki"
+                  href={r.wiki}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Wiki: exact location and loot behind the door"
+                >
+                  where + loot ↗
                 </a>
               )}
             </td>

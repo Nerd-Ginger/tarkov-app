@@ -720,7 +720,8 @@ export default function App() {
             <p className="legend">
               Every key by the map it's used on, and what it opens (doors, trunks, containers). ⚡ means the lock
               needs power switched on. <strong>Value</strong> is the key's flea/trader price — a rough proxy for
-              what's behind the door; hit <strong>loot ↗</strong> for the wiki's exact room contents.
+              what's behind the door. <strong>🗺 map ↗</strong> opens the interactive map with every key location
+              plotted; <strong>where + loot ↗</strong> is the wiki page with the exact spot and room contents.
             </p>
             <KeysView keys={keys} prices={pricesById} />
           </section>

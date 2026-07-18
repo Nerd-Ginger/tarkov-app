@@ -2,7 +2,7 @@ import type { RawAmmo, RawBarter, RawCraft, RawHideoutStation, RawMap, RawTask }
 import snapshot from '../data/snapshot.json'
 
 const API_URL = 'https://api.tarkov.dev/graphql'
-const CACHE_KEY = 'tarkov.tasks.v9'
+const CACHE_KEY = 'tarkov.tasks.v10'
 export const CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000 // 12h
 
 /**
@@ -82,6 +82,7 @@ const QUERY = `{
   }
   maps(lang: en, gameMode: pve) {
     name
+    normalizedName
     locks { lockType needsPower key { id name shortName wikiLink } }
   }
 }`

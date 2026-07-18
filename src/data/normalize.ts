@@ -389,13 +389,22 @@ export function normalizeCrafts(crafts: RawCraft[]): Craft[] {
  * Factory → Factory, etc.) so a key's doors group under one map name.
  */
 export function normalizeKeys(maps: RawMap[]): KeyLock[] {
+  // Prefer the base map's slug for a display name (Factory, not Night Factory).
+  const slugByDisplay: Record<string, string> = {}
+  for (const m of maps) {
+    const display = normalizeMapName(m.name)
+    if (m.name === display && m.normalizedName) slugByDisplay[display] = m.normalizedName
+  }
+
   const out: KeyLock[] = []
   for (const m of maps) {
     const map = normalizeMapName(m.name)
+    const mapSlug = slugByDisplay[map] ?? m.normalizedName ?? ''
     for (const l of m.locks ?? []) {
       if (!l.key) continue
       out.push({
         map,
+        mapSlug,
         keyId: l.key.id,
         keyName: l.key.name,
         keyShort: l.key.shortName,

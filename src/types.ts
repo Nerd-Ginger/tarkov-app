@@ -263,12 +263,15 @@ export interface RawLock {
 
 export interface RawMap {
   name: string
+  normalizedName: string
   locks: RawLock[] | null
 }
 
 /** One key→lock relationship on a map. */
 export interface KeyLock {
   map: string
+  /** tarkov.dev interactive-map slug for the base map (e.g. "reserve"). */
+  mapSlug: string
   keyId: string
   keyName: string
   keyShort: string

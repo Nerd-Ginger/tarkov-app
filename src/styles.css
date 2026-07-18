@@ -1610,6 +1610,22 @@ tr.done .quest-link {
 .key-wiki {
   font-size: 12px;
   padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.map-link {
+  margin-left: 12px;
+  font-size: 11.5px;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.map-link:hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
 }
 
 /* ---- flea prices / fire sale ---- */
