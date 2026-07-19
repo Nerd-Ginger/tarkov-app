@@ -28,7 +28,10 @@ export const EMPTY_FILTERS: Filters = {
   trader: '',
   kappaOnly: false,
   hideDone: false,
-  hideBlocked: false,
+  // on by default: a quest locked behind an unfinished prerequisite looks
+  // identical to an available one in the list, which reads as a bug. Best
+  // Quests has always excluded them; this makes the list agree.
+  hideBlocked: true,
   showArena: false,
   level: '',
   search: '',

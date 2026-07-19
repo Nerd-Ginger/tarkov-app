@@ -1,6 +1,7 @@
 import { CATEGORIES } from '../types'
 import type { ObjectiveCategory } from '../types'
 import { EVENT_MAPS, isPseudoMap } from '../data/normalize'
+import { EMPTY_FILTERS } from '../filters'
 import type { Filters } from '../filters'
 
 interface Props {
@@ -31,7 +32,8 @@ export function FilterBar({ filters, onChange, allMaps, allTraders }: Props) {
     filters.trader !== '' ||
     filters.kappaOnly ||
     filters.hideDone ||
-    filters.hideBlocked ||
+    // compared against the default, which is now on — the deviation is turning it off
+    filters.hideBlocked !== EMPTY_FILTERS.hideBlocked ||
     filters.showArena ||
     filters.level !== '' ||
     filters.search !== ''
@@ -138,19 +140,7 @@ export function FilterBar({ filters, onChange, allMaps, allTraders }: Props) {
         {anyActive && (
           <button
             className="clear-btn"
-            onClick={() =>
-              onChange({
-                maps: new Set(),
-                cats: new Set(),
-                trader: '',
-                kappaOnly: false,
-                hideDone: false,
-                hideBlocked: false,
-                showArena: false,
-                level: '',
-                search: '',
-              })
-            }
+            onClick={() => onChange({ ...EMPTY_FILTERS, maps: new Set(), cats: new Set() })}
           >
             Clear filters
           </button>
