@@ -3,6 +3,11 @@ import { isBlocked } from '../filters'
 import { matchesMapNeeded, questProgress } from './progress'
 import type { QuestProgress } from '../hooks/useQuestProgress'
 
+/** A quest matches when no traders are selected, or its trader is one of them. */
+function matchesTrader(q: Quest, traders: Set<string>): boolean {
+  return traders.size === 0 || traders.has(q.trader)
+}
+
 /** Within the player's level (0 = unknown, don't gate). */
 function withinLevel(q: Quest, pmcLevel: number): boolean {
   return pmcLevel <= 0 || q.minLevel <= pmcLevel
@@ -31,6 +36,7 @@ export function bestQuests(
   done: Set<string>,
   progress: QuestProgress,
   maps: Set<string>,
+  traders: Set<string>,
   pmcLevel: number,
   topN = 10,
 ): BestQuest[] {
@@ -48,12 +54,13 @@ export function bestQuests(
   }
 
   // Dependents are built from every quest above, so unblock counts stay accurate;
-  // the map/level filters only limit which quests are shown as candidates.
+  // the map/trader/level filters only limit which quests are shown as candidates.
   const candidates = quests.filter(
     (q) =>
       !done.has(q.id) &&
       !isBlocked(q, done) &&
       withinLevel(q, pmcLevel) &&
+      matchesTrader(q, traders) &&
       matchesMapNeeded(q, maps, progress, done),
   )
 
@@ -113,6 +120,7 @@ export function bestRewardQuests(
   done: Set<string>,
   progress: QuestProgress,
   maps: Set<string>,
+  traders: Set<string>,
   pmcLevel: number,
   topN = 10,
 ): RewardQuest[] {
@@ -121,6 +129,7 @@ export function bestRewardQuests(
       !done.has(q.id) &&
       !isBlocked(q, done) &&
       withinLevel(q, pmcLevel) &&
+      matchesTrader(q, traders) &&
       matchesMapNeeded(q, maps, progress, done),
   )
   const scored = candidates.map((quest) => ({

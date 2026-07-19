@@ -135,15 +135,18 @@ export default function App() {
   const [treeOpen, setTreeOpen] = useState(false)
   const [questsOpen, setQuestsOpen] = useState(true)
   const [bestMaps, setBestMaps] = useState<Set<string>>(new Set())
+  const [bestTraders, setBestTraders] = useState<Set<string>>(new Set())
   const [view, setView] = useState<View>(readView)
 
-  const toggleBestMap = (m: string) =>
-    setBestMaps((prev) => {
-      const next = new Set(prev)
-      if (next.has(m)) next.delete(m)
-      else next.add(m)
-      return next
-    })
+  const toggleInSet = (set: Set<string>, v: string) => {
+    const next = new Set(set)
+    if (next.has(v)) next.delete(v)
+    else next.add(v)
+    return next
+  }
+
+  const toggleBestMap = (m: string) => setBestMaps((prev) => toggleInSet(prev, m))
+  const toggleBestTrader = (t: string) => setBestTraders((prev) => toggleInSet(prev, t))
 
   const switchView = (v: View) => {
     setView(v)
@@ -369,12 +372,12 @@ export default function App() {
   }, [visibleQuests, done])
 
   const best = useMemo(
-    () => bestQuests(visibleQuests, done, progress, bestMaps, profile.pmcLevel),
-    [visibleQuests, done, progress, bestMaps, profile.pmcLevel],
+    () => bestQuests(visibleQuests, done, progress, bestMaps, bestTraders, profile.pmcLevel),
+    [visibleQuests, done, progress, bestMaps, bestTraders, profile.pmcLevel],
   )
   const bestRewards = useMemo(
-    () => bestRewardQuests(visibleQuests, done, progress, bestMaps, profile.pmcLevel),
-    [visibleQuests, done, progress, bestMaps, profile.pmcLevel],
+    () => bestRewardQuests(visibleQuests, done, progress, bestMaps, bestTraders, profile.pmcLevel),
+    [visibleQuests, done, progress, bestMaps, bestTraders, profile.pmcLevel],
   )
 
   // "What are we doing?" — roll a random quest from everything currently available
@@ -558,6 +561,25 @@ export default function App() {
                   ))}
                   {bestMaps.size > 0 && (
                     <button className="clear-btn" onClick={() => setBestMaps(new Set())}>
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="filter-row">
+                <span className="filter-label">Traders</span>
+                <div className="chip-group">
+                  {allTraders.map((t) => (
+                    <button
+                      key={t}
+                      className={`chip ${bestTraders.has(t) ? 'active' : ''}`}
+                      onClick={() => toggleBestTrader(t)}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                  {bestTraders.size > 0 && (
+                    <button className="clear-btn" onClick={() => setBestTraders(new Set())}>
                       Clear
                     </button>
                   )}
