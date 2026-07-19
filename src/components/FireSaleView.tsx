@@ -1,18 +1,23 @@
-import { useMemo, useState } from 'react'
-import type { ItemRef, PriceRow } from '../types'
+import { useEffect, useMemo, useState } from 'react'
+import type { ItemRef, PriceRow, Profile, TraderReset } from '../types'
+import { traderSortKey } from '../data/normalize'
+import { FLEA, buyOption, perSlot, sellOption } from '../data/tradeAccess'
+import type { BuyOption } from '../data/tradeAccess'
+import { ResetBanner } from './ResetBanner'
 
 const ROW_CAP = 400
+const FILTER_KEY = 'tarkov.fireSaleFilter.v1'
 
-type SortField = 'name' | 'flea' | 'change' | 'trader' | 'perSlot'
+type SortField = 'name' | 'buy' | 'flea' | 'change' | 'sell' | 'margin' | 'perSlot'
 type SortDir = 'asc' | 'desc'
-
-/** Best obtainable sell price per grid slot — the loot-priority signal. */
-function perSlot(p: { flea: number | null; trader: number; slots: number }): number {
-  return Math.max(p.flea ?? 0, p.trader) / p.slots
-}
+type FleaMode = 'all' | 'banned' | 'traderOnly'
 
 interface Props {
   rows: PriceRow[]
+  profile: Profile
+  /** Traders not unlocked yet — their offers don't count on either side. */
+  locked: Set<string>
+  traderResets: TraderReset[]
   fetchedAt: number | null
   loading: boolean
   offline: boolean
@@ -20,15 +25,36 @@ interface Props {
   onItemClick: (item: ItemRef) => void
 }
 
+/** Per-row market facts, computed once so filters and sorts read numbers. */
+interface Decorated {
+  p: PriceRow
+  buy: BuyOption
+  sell: { source: string; price: number } | null
+  /** Best obtainable sell price (flea or unlocked trader), for the value floor. */
+  value: number
+  ps: number
+  margin: number | null
+}
+
 const MIN_PRICE_OPTIONS = [
   { label: 'All prices', value: 0 },
-  { label: '> ₽10k', value: 10_000 },
-  { label: '> ₽50k', value: 50_000 },
-  { label: '> ₽100k', value: 100_000 },
+  { label: 'Value > ₽10k', value: 10_000 },
+  { label: 'Value > ₽50k', value: 50_000 },
+  { label: 'Value > ₽100k', value: 100_000 },
+]
+
+const FLEA_OPTIONS: { label: string; value: FleaMode }[] = [
+  { label: 'All items', value: 'all' },
+  { label: 'Flea-banned only', value: 'banned' },
+  { label: 'Trader-only (hide flea)', value: 'traderOnly' },
 ]
 
 function rub(n: number | null): string {
   return n === null ? '—' : `₽${Math.round(n).toLocaleString()}`
+}
+
+function signedRub(n: number): string {
+  return `${n > 0 ? '+' : n < 0 ? '−' : ''}₽${Math.abs(Math.round(n)).toLocaleString()}`
 }
 
 function timeAgo(ts: number): string {
@@ -38,52 +64,162 @@ function timeAgo(ts: number): string {
   return `${Math.round(mins / 60)} h ago`
 }
 
-/** Cap a trader source name ("therapist" → "Therapist"). */
-function traderLabel(source: string): string {
-  return source ? source.charAt(0).toUpperCase() + source.slice(1) : ''
+interface SavedFilters {
+  minPrice: number
+  fleaMode: FleaMode
+  canBuyOnly: boolean
+  traders: string[]
 }
 
-export function FireSaleView({ rows, fetchedAt, loading, offline, onRefresh, onItemClick }: Props) {
+function readFilters(): SavedFilters {
+  const fallback: SavedFilters = { minPrice: 10_000, fleaMode: 'all', canBuyOnly: false, traders: [] }
+  try {
+    const raw = localStorage.getItem(FILTER_KEY)
+    if (!raw) return fallback
+    const p = JSON.parse(raw) as Partial<SavedFilters>
+    return {
+      minPrice: typeof p.minPrice === 'number' ? p.minPrice : fallback.minPrice,
+      fleaMode: p.fleaMode === 'banned' || p.fleaMode === 'traderOnly' ? p.fleaMode : 'all',
+      canBuyOnly: p.canBuyOnly === true,
+      traders: Array.isArray(p.traders) ? p.traders.filter((t): t is string => typeof t === 'string') : [],
+    }
+  } catch {
+    return fallback
+  }
+}
+
+export function FireSaleView({
+  rows,
+  profile,
+  locked,
+  traderResets,
+  fetchedAt,
+  loading,
+  offline,
+  onRefresh,
+  onItemClick,
+}: Props) {
+  const saved = useMemo(readFilters, [])
   const [search, setSearch] = useState('')
-  const [bannedOnly, setBannedOnly] = useState(false)
-  const [minPrice, setMinPrice] = useState(10_000)
+  const [minPrice, setMinPrice] = useState(saved.minPrice)
+  const [fleaMode, setFleaMode] = useState<FleaMode>(saved.fleaMode)
+  const [canBuyOnly, setCanBuyOnly] = useState(saved.canBuyOnly)
+  const [traders, setTraders] = useState<Set<string>>(() => new Set(saved.traders))
   const [sortField, setSortField] = useState<SortField>('perSlot')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        FILTER_KEY,
+        JSON.stringify({ minPrice, fleaMode, canBuyOnly, traders: [...traders] }),
+      )
+    } catch {
+      // storage unavailable — filters just won't persist
+    }
+  }, [minPrice, fleaMode, canBuyOnly, traders])
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
     } else {
       setSortField(field)
-      setSortDir(field === 'name' ? 'asc' : 'desc')
+      // cheapest-first and A-Z are the useful defaults; everything else is "biggest first"
+      setSortDir(field === 'name' || field === 'buy' ? 'asc' : 'desc')
     }
   }
 
+  const toggleTrader = (t: string) =>
+    setTraders((prev) => {
+      const next = new Set(prev)
+      if (next.has(t)) next.delete(t)
+      else next.add(t)
+      return next
+    })
+
+  // every trader appearing on either side of the market, in canonical order
+  const allTraders = useMemo(() => {
+    const s = new Set<string>()
+    for (const r of rows) {
+      for (const x of r.sellTo) s.add(x.source)
+      for (const b of r.buyFrom) if (b.source !== FLEA) s.add(b.source)
+    }
+    return [...s].sort((a, b) => traderSortKey(a) - traderSortKey(b))
+  }, [rows])
+
+  const decorated = useMemo<Decorated[]>(
+    () =>
+      rows.map((p) => {
+        const buy = buyOption(p, profile, locked)
+        const sell = sellOption(p, locked)
+        const value = Math.max(p.flea ?? 0, sell?.price ?? 0)
+        return {
+          p,
+          buy,
+          sell,
+          value,
+          ps: perSlot(p, locked),
+          // only a trader purchase can produce a spread — flea-to-flea is always zero
+          margin: buy.traderBest && value > 0 ? value - buy.traderBest.price : null,
+        }
+      }),
+    [rows, profile, locked],
+  )
+
   const { visible, total } = useMemo(() => {
-    let list = rows
+    let list = decorated
+    // cheapest predicates first so the string compare runs on the smallest set
+    if (traders.size > 0) {
+      list = list.filter(
+        (d) =>
+          d.p.sellTo.some((s) => traders.has(s.source)) ||
+          d.p.buyFrom.some((b) => b.source !== FLEA && traders.has(b.source)),
+      )
+    }
+    if (canBuyOnly) list = list.filter((d) => d.buy.traderBest !== null)
+    if (fleaMode === 'banned') list = list.filter((d) => d.p.noFlea)
+    else if (fleaMode === 'traderOnly') list = list.filter((d) => !d.p.buyFrom.some((b) => b.source === FLEA))
+    if (minPrice > 0) list = list.filter((d) => d.value >= minPrice)
     if (search) {
       const s = search.toLowerCase()
-      list = list.filter((p) => p.name.toLowerCase().includes(s) || p.shortName.toLowerCase().includes(s))
+      list = list.filter(
+        (d) => d.p.name.toLowerCase().includes(s) || d.p.shortName.toLowerCase().includes(s),
+      )
     }
-    if (bannedOnly) list = list.filter((p) => p.noFlea)
-    if (minPrice > 0) list = list.filter((p) => Math.max(p.flea ?? 0, p.trader) >= minPrice)
     const m = sortDir === 'asc' ? 1 : -1
     const sorted = [...list].sort((a, b) => {
       switch (sortField) {
         case 'name':
-          return m * a.name.localeCompare(b.name)
+          return m * a.p.name.localeCompare(b.p.name)
+        case 'buy': {
+          // no reachable offer sinks to the bottom in BOTH directions, otherwise
+          // the thousands of unbuyable rows swamp the ascending sort
+          const av = a.buy.best?.price
+          const bv = b.buy.best?.price
+          if (av == null || bv == null) return (av == null ? 1 : 0) - (bv == null ? 1 : 0)
+          return m * (av - bv) || a.p.name.localeCompare(b.p.name)
+        }
         case 'flea':
-          return m * ((a.flea ?? -1) - (b.flea ?? -1)) || a.name.localeCompare(b.name)
+          return m * ((a.p.flea ?? -1) - (b.p.flea ?? -1)) || a.p.name.localeCompare(b.p.name)
         case 'change':
-          return m * ((a.change48h ?? -Infinity) - (b.change48h ?? -Infinity)) || a.name.localeCompare(b.name)
-        case 'trader':
-          return m * (a.trader - b.trader) || a.name.localeCompare(b.name)
+          return (
+            m * ((a.p.change48h ?? -Infinity) - (b.p.change48h ?? -Infinity)) ||
+            a.p.name.localeCompare(b.p.name)
+          )
+        case 'sell':
+          return m * ((a.sell?.price ?? -1) - (b.sell?.price ?? -1)) || a.p.name.localeCompare(b.p.name)
+        case 'margin': {
+          const av = a.margin
+          const bv = b.margin
+          if (av == null || bv == null) return (av == null ? 1 : 0) - (bv == null ? 1 : 0)
+          return m * (av - bv) || a.p.name.localeCompare(b.p.name)
+        }
         case 'perSlot':
-          return m * (perSlot(a) - perSlot(b)) || a.name.localeCompare(b.name)
+          return m * (a.ps - b.ps) || a.p.name.localeCompare(b.p.name)
       }
     })
     return { visible: sorted.slice(0, ROW_CAP), total: sorted.length }
-  }, [rows, search, bannedOnly, minPrice, sortField, sortDir])
+  }, [decorated, search, traders, canBuyOnly, fleaMode, minPrice, sortField, sortDir])
 
   const arrow = (f: SortField) => (sortField === f ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '')
 
@@ -108,7 +244,33 @@ export function FireSaleView({ rows, fetchedAt, loading, offline, onRefresh, onI
 
   return (
     <div className="trade-view">
+      <ResetBanner resets={traderResets} />
+
       <div className="filter-bar">
+        <div className="filter-row">
+          <span className="filter-label">Traders</span>
+          <div className="chip-group">
+            {allTraders.map((t) => {
+              const isLocked = locked.has(t)
+              return (
+                <button
+                  key={t}
+                  className={`chip ${traders.has(t) ? 'active' : ''} ${isLocked ? 'locked' : ''}`}
+                  onClick={() => toggleTrader(t)}
+                  title={isLocked ? `${t} isn't unlocked yet — mark him in Profile` : undefined}
+                >
+                  {t}
+                  {isLocked && ' 🔒'}
+                </button>
+              )
+            })}
+            {traders.size > 0 && (
+              <button className="clear-btn" onClick={() => setTraders(new Set())}>
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
         <div className="filter-row controls">
           <input
             type="search"
@@ -116,16 +278,34 @@ export function FireSaleView({ rows, fetchedAt, loading, offline, onRefresh, onI
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <select value={minPrice} onChange={(e) => setMinPrice(Number(e.target.value))}>
+          <select
+            value={minPrice}
+            onChange={(e) => setMinPrice(Number(e.target.value))}
+            title="Hide items worth less than this to sell"
+          >
             {MIN_PRICE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
             ))}
           </select>
-          <label className="check-label" title="Only items banned from the flea market — trader-sell only">
-            <input type="checkbox" checked={bannedOnly} onChange={(e) => setBannedOnly(e.target.checked)} />
-            Flea-banned only
+          <select
+            value={fleaMode}
+            onChange={(e) => setFleaMode(e.target.value as FleaMode)}
+            title="Flea-banned = trader-sell only. Trader-only = hide anything you can buy on flea."
+          >
+            {FLEA_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <label
+            className="check-label arena-toggle"
+            title="Only items a trader will sell you at your current loyalty (set in Profile). The flea market isn't counted."
+          >
+            <input type="checkbox" checked={canBuyOnly} onChange={(e) => setCanBuyOnly(e.target.checked)} />
+            Can buy
           </label>
           <button className="clear-btn" onClick={onRefresh} disabled={loading}>
             {loading ? 'Refreshing…' : 'Refresh prices'}
@@ -145,6 +325,13 @@ export function FireSaleView({ rows, fetchedAt, loading, offline, onRefresh, onI
                 Item{arrow('name')}
               </th>
               <th
+                className={`sortable num-col ${sortField === 'buy' ? 'sorted' : ''}`}
+                onClick={() => handleSort('buy')}
+                title="Cheapest offer you can actually buy, given your trader loyalty"
+              >
+                Buy{arrow('buy')}
+              </th>
+              <th
                 className={`sortable num-col ${sortField === 'flea' ? 'sorted' : ''}`}
                 onClick={() => handleSort('flea')}
                 title="Flea market average over 24h"
@@ -159,11 +346,18 @@ export function FireSaleView({ rows, fetchedAt, loading, offline, onRefresh, onI
                 Δ 48h{arrow('change')}
               </th>
               <th
-                className={`sortable num-col ${sortField === 'trader' ? 'sorted' : ''}`}
-                onClick={() => handleSort('trader')}
-                title="Best trader sell price, in roubles"
+                className={`sortable num-col ${sortField === 'sell' ? 'sorted' : ''}`}
+                onClick={() => handleSort('sell')}
+                title="Best price among traders you've unlocked"
               >
-                Trader{arrow('trader')}
+                Sell{arrow('sell')}
+              </th>
+              <th
+                className={`sortable num-col ${sortField === 'margin' ? 'sorted' : ''}`}
+                onClick={() => handleSort('margin')}
+                title="Best sell price minus the cheapest trader offer you can reach — the flip. Flea-to-flea is never a trade, so flea buys don't count."
+              >
+                Margin{arrow('margin')}
               </th>
               <th
                 className={`sortable num-col ${sortField === 'perSlot' ? 'sorted' : ''}`}
@@ -172,12 +366,11 @@ export function FireSaleView({ rows, fetchedAt, loading, offline, onRefresh, onI
               >
                 ₽/slot{arrow('perSlot')}
               </th>
-              <th title="Who pays more for this item">Sell to</th>
             </tr>
           </thead>
           <tbody>
-            {visible.map((p) => {
-              const fleaWins = (p.flea ?? 0) > p.trader
+            {visible.map(({ p, buy, sell, ps, margin }) => {
+              const fleaWins = (p.flea ?? 0) > (sell?.price ?? 0)
               return (
                 <tr key={p.id}>
                   <td className={p.noFlea ? 'no-flea' : ''}>
@@ -190,6 +383,37 @@ export function FireSaleView({ rows, fetchedAt, loading, offline, onRefresh, onI
                     </button>
                     {p.noFlea && <span className="no-flea-mark">✱</span>}
                   </td>
+                  <td className="num-col">
+                    {buy.best ? (
+                      <>
+                        {rub(buy.best.price)}{' '}
+                        <span className="trader-src">
+                          {buy.best.source}
+                          {buy.best.minLevel > 1 && ` LL${buy.best.minLevel}`}
+                        </span>
+                        {buy.lockedCheaper && (
+                          <span
+                            className="buy-locked"
+                            title={`${buy.lockedCheaper.source} LL${buy.lockedCheaper.minLevel} sells it for ${rub(buy.lockedCheaper.price)} — you're not there yet`}
+                          >
+                            🔒
+                          </span>
+                        )}
+                      </>
+                    ) : buy.lockedCheaper ? (
+                      <span
+                        className="buy-locked"
+                        title={`Needs ${buy.lockedCheaper.source} LL${buy.lockedCheaper.minLevel}`}
+                      >
+                        🔒 {rub(buy.lockedCheaper.price)}{' '}
+                        <span className="trader-src">
+                          {buy.lockedCheaper.source} LL{buy.lockedCheaper.minLevel}
+                        </span>
+                      </span>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
                   <td className="num-col">{rub(p.flea)}</td>
                   <td
                     className={`num-col ${p.change48h && p.change48h > 0 ? 'delta-up' : p.change48h && p.change48h < 0 ? 'delta-down' : ''}`}
@@ -197,26 +421,24 @@ export function FireSaleView({ rows, fetchedAt, loading, offline, onRefresh, onI
                     {p.change48h === null ? '—' : `${p.change48h > 0 ? '+' : ''}${p.change48h}%`}
                   </td>
                   <td className="num-col">
-                    {p.trader > 0 ? (
-                      <>
-                        {rub(p.trader)} <span className="trader-src">{traderLabel(p.traderName)}</span>
-                      </>
-                    ) : (
-                      '—'
-                    )}
-                  </td>
-                  <td className="num-col flea-price">
-                    {perSlot(p) > 0 ? rub(perSlot(p)) : '—'}
-                    {p.slots > 1 && <span className="trader-src"> ({p.slots})</span>}
-                  </td>
-                  <td>
-                    {p.flea === null && p.trader === 0 ? (
+                    {p.flea === null && !sell ? (
                       '—'
                     ) : fleaWins ? (
-                      <span className="sell-flea">Flea</span>
+                      <>
+                        {rub(p.flea)} <span className="sell-flea">Flea</span>
+                      </>
                     ) : (
-                      <span className="sell-trader">{traderLabel(p.traderName) || 'Trader'}</span>
+                      <>
+                        {rub(sell!.price)} <span className="sell-trader">{sell!.source}</span>
+                      </>
                     )}
+                  </td>
+                  <td className={`num-col ${margin == null ? '' : margin > 0 ? 'delta-up' : 'delta-down'}`}>
+                    {margin == null ? '—' : signedRub(margin)}
+                  </td>
+                  <td className="num-col flea-price">
+                    {ps > 0 ? rub(ps) : '—'}
+                    {p.slots > 1 && <span className="trader-src"> ({p.slots})</span>}
                   </td>
                 </tr>
               )
@@ -226,10 +448,15 @@ export function FireSaleView({ rows, fetchedAt, loading, offline, onRefresh, onI
       </div>
       {total > ROW_CAP ? (
         <p className="empty-note">
-          Showing {ROW_CAP} of {total.toLocaleString()} items — refine the search or raise the price floor.
+          Showing {ROW_CAP} of {total.toLocaleString()} items — refine the search or raise the value floor.
         </p>
       ) : (
-        total === 0 && <p className="empty-note">No items match.</p>
+        total === 0 && (
+          <p className="empty-note">
+            No items match.
+            {canBuyOnly && ' “Can buy” only shows what a trader will sell you at your current loyalty — set your trader levels in Profile, or untick it.'}
+          </p>
+        )
       )}
     </div>
   )

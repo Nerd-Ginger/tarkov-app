@@ -1,7 +1,7 @@
 import type { PriceRow } from '../types'
 
 const API_URL = 'https://api.tarkov.dev/graphql'
-const CACHE_KEY = 'tarkov.prices.v4'
+const CACHE_KEY = 'tarkov.prices.v5'
 export const PRICES_MAX_AGE_MS = 60 * 60 * 1000 // 1h — flea prices move fast
 
 export const ROUBLES_ID = '5449016a4bdc2d6f028b456f'
@@ -83,20 +83,27 @@ function trim(raw: RawPriceItem): PriceRow {
       change48h: 0,
       trader: 1,
       traderName: '',
+      sellTo: [],
       noFlea: true,
       slots: 1,
       buyFrom: [],
     }
   }
+  // `trader`/`traderName` stay the raw best-of-all for existing consumers
+  // (ItemModal, KeysView, TradeModal). `sellTo` keeps every offer so the market
+  // view can pick the best among traders the player has actually unlocked.
   let trader = 0
   let traderName = ''
+  const sellTo: { source: string; price: number }[] = []
   for (const s of raw.sellFor ?? []) {
-    if (s.source === 'fleaMarket') continue
+    if (s.source === 'fleaMarket' || s.priceRUB <= 0) continue
+    sellTo.push({ source: cap(s.source), price: Math.round(s.priceRUB) })
     if (s.priceRUB > trader) {
       trader = s.priceRUB
       traderName = s.source
     }
   }
+  sellTo.sort((a, b) => b.price - a.price)
   // Only trust a flea price backed by a real 24h trading spread. tarkov.dev
   // keeps a flat placeholder price (avg = low = high, often absurd) for
   // restricted/untradeable items — event masks, quest-fuel, gun parts — that
@@ -123,6 +130,7 @@ function trim(raw: RawPriceItem): PriceRow {
     change48h: raw.changeLast48hPercent,
     trader,
     traderName,
+    sellTo,
     noFlea: (raw.types ?? []).includes('noFlea'),
     slots,
     buyFrom,

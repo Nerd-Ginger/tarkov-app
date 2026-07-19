@@ -396,6 +396,12 @@ h2 {
   border-style: dashed;
 }
 
+/* trader you haven't unlocked — still selectable, their offers just don't count */
+.chip.locked:not(.active) {
+  color: var(--text-dim);
+  border-style: dashed;
+}
+
 .chip.event {
   opacity: 0.85;
 }
@@ -1773,7 +1779,15 @@ tr.done .quest-link {
 /* ---- flea prices / fire sale ---- */
 
 .firesale-table {
-  min-width: 720px;
+  min-width: 900px;
+}
+
+/* a cheaper buy offer exists above the player's loyalty */
+.buy-locked {
+  color: var(--text-dim);
+  font-size: 11px;
+  margin-left: 3px;
+  cursor: help;
 }
 
 .delta-up {

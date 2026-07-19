@@ -86,7 +86,7 @@ const OTHER_VIEWS = new Set<string>([
 /** Views that show flea prices — visiting one triggers the lazy price fetch. */
 const PRICE_VIEWS = new Set<View>(['items', 'barters', 'crafts', 'firesale', 'keys'])
 /** Views that need trader-reset / goon / boss intel. */
-const INTEL_VIEWS = new Set<View>(['barters', 'bosses'])
+const INTEL_VIEWS = new Set<View>(['barters', 'bosses', 'firesale'])
 
 function readView(): View {
   const v = localStorage.getItem(VIEW_KEY)
@@ -743,12 +743,17 @@ export default function App() {
           <section>
             <h2>Fire Sale</h2>
             <p className="legend">
-              Live PvE prices from tarkov.dev (refreshed ~hourly when online). <strong>Sell to</strong> = who pays
-              more for the item; trader prices are the best trader, in roubles.{' '}
+              Live PvE prices from tarkov.dev (refreshed ~hourly when online) — both sides of the market.{' '}
+              <strong>Buy</strong> is the cheapest offer you can actually take at your trader loyalty (set it in
+              Profile); 🔒 means a cheaper one sits above your level. <strong>Sell</strong> and{' '}
+              <strong>₽/slot</strong> only count traders you've unlocked.{' '}
               <strong className="warn-text">✱</strong> = flea-banned, trader-only.
             </p>
             <FireSaleView
               rows={priceRows}
+              profile={profile}
+              locked={locked}
+              traderResets={intel.traderResets}
               fetchedAt={pricesFetchedAt}
               loading={pricesLoading}
               offline={pricesOffline}

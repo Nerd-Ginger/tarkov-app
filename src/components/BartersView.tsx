@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Barter, Profile, TraderReset } from '../types'
 import { traderSortKey } from '../data/normalize'
 import { traderLoyalty } from '../hooks/useProfile'
-import { countdown } from '../data/timeFormat'
 import { useExpandedGroups } from '../hooks/useExpandedGroups'
 import { FirBadge, TradeList } from './TradeParts'
+import { ResetBanner } from './ResetBanner'
 
 const FILTER_KEY = 'tarkov.barterFilter.v1'
 
@@ -14,28 +14,6 @@ interface Props {
   done: Set<string>
   traderResets: TraderReset[]
   onOpen: (barter: Barter) => void
-}
-
-function ResetBanner({ resets }: { resets: TraderReset[] }) {
-  const [, setTick] = useState(0)
-  useEffect(() => {
-    const t = setInterval(() => setTick((n) => n + 1), 30_000)
-    return () => clearInterval(t)
-  }, [])
-  if (resets.length === 0) return null
-  return (
-    <div className="reset-banner">
-      <span className="reset-label">Trader restock</span>
-      {resets.map((r) => {
-        const soon = r.resetAt - Date.now() < 30 * 60 * 1000
-        return (
-          <span key={r.name} className={`reset-chip ${soon ? 'soon' : ''}`}>
-            {r.name} <strong>{countdown(r.resetAt)}</strong>
-          </span>
-        )
-      })}
-    </div>
-  )
 }
 
 function matches(b: Barter, s: string): boolean {

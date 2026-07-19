@@ -255,6 +255,12 @@ export interface PriceRow {
   /** Best trader sell price, normalized to roubles (0 = no trader buys it). */
   trader: number
   traderName: string
+  /**
+   * Every trader that buys this item, best-paying first (flea excluded).
+   * Sources are display-cased ("Prapor") unlike `traderName`, which stays raw
+   * for back-compat. Trader sell offers are never loyalty-gated, so no level.
+   */
+  sellTo: { source: string; price: number }[]
   noFlea: boolean
   /** Grid slots (width × height), min 1 — for price-per-slot. */
   slots: number
