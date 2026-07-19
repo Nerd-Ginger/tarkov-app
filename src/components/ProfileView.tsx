@@ -1,15 +1,30 @@
 import type { Profile } from '../types'
 import { MAX_LOYALTY } from '../hooks/useProfile'
+import { GATED_TRADERS } from '../data/traderGate'
 
 interface Props {
   profile: Profile
   traders: string[]
+  /** Gated traders already unlocked by a completed quest — shown but not editable. */
+  autoUnlocked: Set<string>
+  /** Trader → name of the quest that grants it, when the data names one. */
+  unlockQuests: Record<string, string | null>
   onSetPmcLevel: (level: number) => void
   onSetTraderLevel: (trader: string, level: number) => void
+  onSetTraderUnlocked: (trader: string, unlocked: boolean) => void
   onResetForWipe: () => void
 }
 
-export function ProfileView({ profile, traders, onSetPmcLevel, onSetTraderLevel, onResetForWipe }: Props) {
+export function ProfileView({
+  profile,
+  traders,
+  autoUnlocked,
+  unlockQuests,
+  onSetPmcLevel,
+  onSetTraderLevel,
+  onSetTraderUnlocked,
+  onResetForWipe,
+}: Props) {
   return (
     <div className="profile-view">
       <div className="profile-section">
@@ -25,6 +40,43 @@ export function ProfileView({ profile, traders, onSetPmcLevel, onSetTraderLevel,
             onChange={(e) => onSetPmcLevel(Number.parseInt(e.target.value, 10) || 0)}
           />
         </label>
+      </div>
+
+      <div className="profile-section">
+        <span className="best-label">Traders unlocked</span>
+        <p className="legend profile-hint">
+          Traders you don't start with. Their quests stay hidden until you have access, so they can't
+          turn up in Best Quests before you can actually take them.
+        </p>
+        <div className="unlock-traders">
+          {GATED_TRADERS.map((t) => {
+            const auto = autoUnlocked.has(t)
+            const gateQuest = unlockQuests[t]
+            const on = auto || profile.unlockedTraders[t] === true
+            const title = auto
+              ? `Unlocked automatically — you've completed ${gateQuest ?? 'the quest that grants ' + t}.`
+              : gateQuest
+                ? `Unlocks on its own once you complete "${gateQuest}". Tick if you already have access.`
+                : `No quest in the data grants ${t}, so this can't be detected — tick it once you've unlocked him in game.`
+            return (
+              <label
+                key={t}
+                className={`check-label unlock-trader ${on ? 'on' : ''} ${auto ? 'auto' : ''}`}
+                title={title}
+              >
+                <input
+                  type="checkbox"
+                  checked={on}
+                  disabled={auto}
+                  onChange={(e) => onSetTraderUnlocked(t, e.target.checked)}
+                />
+                {t}
+                {auto && <span className="unlock-src"> · auto</span>}
+                {!auto && !gateQuest && <span className="unlock-src"> · set by hand</span>}
+              </label>
+            )
+          })}
+        </div>
       </div>
 
       <div className="profile-section">

@@ -2,7 +2,7 @@ import type { Inventory } from '../hooks/useInventory'
 import type { QuestProgress } from '../hooks/useQuestProgress'
 import type { Profile } from '../types'
 
-const DEFAULT_PROFILE: Profile = { pmcLevel: 0, traders: {} }
+const DEFAULT_PROFILE: Profile = { pmcLevel: 0, traders: {}, unlockedTraders: {} }
 
 export interface ProgressData {
   done: string[]
@@ -80,6 +80,13 @@ export function importProgress(onLoad: (data: ProgressData) => void) {
                 traders:
                   typeof parsed.profile.traders === 'object' && parsed.profile.traders !== null
                     ? parsed.profile.traders
+                    : {},
+                // absent in files saved before trader gating — an older save just
+                // means "nothing manually unlocked", which is the safe default
+                unlockedTraders:
+                  typeof parsed.profile.unlockedTraders === 'object' &&
+                  parsed.profile.unlockedTraders !== null
+                    ? parsed.profile.unlockedTraders
                     : {},
               }
             : DEFAULT_PROFILE

@@ -6,7 +6,7 @@ export const MAX_LOYALTY = 4
 
 // pmcLevel 0 = unset; features that gate by level (Best Quests) treat it as
 // "level unknown, don't hide anything" until the user fills it in.
-const EMPTY: Profile = { pmcLevel: 0, traders: {} }
+const EMPTY: Profile = { pmcLevel: 0, traders: {}, unlockedTraders: {} }
 
 function read(): Profile {
   try {
@@ -16,6 +16,8 @@ function read(): Profile {
     return {
       pmcLevel: typeof p.pmcLevel === 'number' ? p.pmcLevel : 0,
       traders: p.traders && typeof p.traders === 'object' ? p.traders : {},
+      unlockedTraders:
+        p.unlockedTraders && typeof p.unlockedTraders === 'object' ? p.unlockedTraders : {},
     }
   } catch {
     return EMPTY
@@ -54,14 +56,24 @@ export function useProfile() {
     })
   }, [])
 
+  const setTraderUnlocked = useCallback((trader: string, unlocked: boolean) => {
+    setProfile((prev) => {
+      const next = { ...prev, unlockedTraders: { ...prev.unlockedTraders, [trader]: unlocked } }
+      persist(next)
+      return next
+    })
+  }, [])
+
   const replaceProfile = useCallback((p: Profile) => {
     const next: Profile = {
       pmcLevel: typeof p?.pmcLevel === 'number' ? p.pmcLevel : 0,
       traders: p?.traders && typeof p.traders === 'object' ? p.traders : {},
+      unlockedTraders:
+        p?.unlockedTraders && typeof p.unlockedTraders === 'object' ? p.unlockedTraders : {},
     }
     persist(next)
     setProfile(next)
   }, [])
 
-  return { profile, setPmcLevel, setTraderLevel, replaceProfile }
+  return { profile, setPmcLevel, setTraderLevel, setTraderUnlocked, replaceProfile }
 }

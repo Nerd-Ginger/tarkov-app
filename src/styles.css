@@ -1509,6 +1509,34 @@ tr.done .quest-link {
   margin-left: 8px;
 }
 
+.unlock-traders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.unlock-trader {
+  padding: 6px 11px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.unlock-trader.on {
+  border-color: color-mix(in srgb, var(--cat-extract) 55%, var(--border));
+  color: var(--cat-extract);
+}
+
+.unlock-trader.auto {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.unlock-trader .unlock-src {
+  font-size: 10.5px;
+  color: var(--text-dim);
+}
+
 .profile-traders {
   display: flex;
   flex-direction: column;

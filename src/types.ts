@@ -329,4 +329,10 @@ export interface Profile {
   pmcLevel: number
   /** Trader name → loyalty level you've reached (1–4). Missing = LL1. */
   traders: Record<string, number>
+  /**
+   * Trader name → unlocked, for traders you don't start with. Only consulted
+   * for traders no quest reward unlocks (Lightkeeper); Jaeger and Ref are
+   * derived from completed quests instead.
+   */
+  unlockedTraders: Record<string, boolean>
 }

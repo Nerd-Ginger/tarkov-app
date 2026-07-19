@@ -27,6 +27,7 @@ import { questHandInItems } from './data/items'
 import { EVENT_MAPS, isPseudoMap, mapSortKey, stationLevelKey, traderSortKey } from './data/normalize'
 import { exportProgress, importProgress } from './data/progressFile'
 import { EMPTY_FILTERS, isBlocked, matchesAll } from './filters'
+import { GATED_TRADERS, lockedTraders, questUnlockedTraders, unlockQuestFor } from './data/traderGate'
 import type { Filters } from './filters'
 import type { Barter, Craft, ItemRef, Quest } from './types'
 import { useActive } from './hooks/useActive'
@@ -107,7 +108,7 @@ export default function App() {
   const { built, replaceBuilt } = useHideout()
   const { progress, setObjective, replaceProgress } = useQuestProgress()
   const { active, toggleActive, clearActive, replaceActive } = useActive()
-  const { profile, setPmcLevel, setTraderLevel, replaceProfile } = useProfile()
+  const { profile, setPmcLevel, setTraderLevel, setTraderUnlocked, replaceProfile } = useProfile()
   const {
     rows: priceRows,
     byId: pricesById,
@@ -250,7 +251,7 @@ export default function App() {
     replaceProgress({})
     replaceInventory({})
     replaceBuilt([])
-    replaceProfile({ pmcLevel: 1, traders: {} })
+    replaceProfile({ pmcLevel: 1, traders: {}, unlockedTraders: {} })
   }
 
   const saveProgress = () => exportProgress(done, inventory, built, progress, active, profile)
@@ -306,11 +307,22 @@ export default function App() {
     [openCraft],
   )
 
+  // Traders you haven't reached yet. Jaeger/Ref fall out of completed quests;
+  // Lightkeeper has no unlock quest in the data, so the profile answers for him.
+  const locked = useMemo(() => lockedTraders(quests, done, profile), [quests, done, profile])
+  const autoUnlockedTraders = useMemo(() => questUnlockedTraders(quests, done), [quests, done])
+  const unlockQuests = useMemo(
+    () => Object.fromEntries(GATED_TRADERS.map((t) => [t, unlockQuestFor(quests, t)?.name ?? null])),
+    [quests],
+  )
+
   // The Arena questline is hidden entirely until the user opts in — you have to
-  // "touch Arena" to see it. Everything below is derived from this gated list.
+  // "touch Arena" to see it. Locked traders' quests are hidden the same way, so
+  // they can't surface in Best Quests before you can take them.
   const visibleQuests = useMemo(
-    () => (filters.showArena ? quests : quests.filter((q) => !q.arena)),
-    [quests, filters.showArena],
+    () =>
+      quests.filter((q) => (filters.showArena || !q.arena) && !locked.has(q.trader)),
+    [quests, filters.showArena, locked],
   )
 
   const allMaps = useMemo(() => {
@@ -683,8 +695,11 @@ export default function App() {
             <ProfileView
               profile={profile}
               traders={barterTraders}
+              autoUnlocked={autoUnlockedTraders}
+              unlockQuests={unlockQuests}
               onSetPmcLevel={setPmcLevel}
               onSetTraderLevel={setTraderLevel}
+              onSetTraderUnlocked={setTraderUnlocked}
               onResetForWipe={resetForWipe}
             />
           </section>
