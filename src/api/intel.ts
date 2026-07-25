@@ -1,4 +1,6 @@
-import type { BossEscort, Intel } from '../types'
+import type { BossEscort, DataSource, Intel } from '../types'
+import { forceJson, intelFromJson } from './jsonFallback'
+import { GRAPHQL_TIMEOUT_MS, describe } from './shared'
 
 const API_URL = 'https://api.tarkov.dev/graphql'
 const CACHE_KEY = 'tarkov.intel.v2'
@@ -25,7 +27,7 @@ interface RawBossSlot {
     | null
 }
 
-interface RawIntel {
+export interface RawIntel {
   traders: { name: string; resetTime: string | null }[] | null
   goonReports: { map: { name: string } | null; timestamp: string | null }[] | null
   maps: { name: string; bosses: RawBossSlot[] | null }[] | null
@@ -34,6 +36,8 @@ interface RawIntel {
 export interface IntelCache {
   fetchedAt: number
   intel: Intel
+  /** Which upstream served this data — absent on caches written before the fallback existed. */
+  source?: DataSource
 }
 
 export function readIntelCache(): IntelCache | null {
@@ -116,17 +120,37 @@ function normalize(raw: RawIntel): Intel {
   return { traderResets, goonReports, bossSpawns }
 }
 
-export async function fetchIntel(): Promise<IntelCache> {
+async function fetchIntelGraphql(): Promise<RawIntel> {
   const res = await fetch(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query: INTEL_QUERY }),
+    // without a deadline a hung VPS never fails, so the fallback never runs
+    signal: AbortSignal.timeout(GRAPHQL_TIMEOUT_MS),
   })
   if (!res.ok) throw new Error(`tarkov.dev API returned ${res.status}`)
   const json = await res.json()
   const data: RawIntel | undefined = json?.data
   if (!data) throw new Error('tarkov.dev API returned no intel')
-  const cache = { fetchedAt: Date.now(), intel: normalize(data) }
-  writeIntelCache(cache)
-  return cache
+  return data
+}
+
+export async function fetchIntel(): Promise<IntelCache> {
+  let gqlError: unknown
+  if (!forceJson()) {
+    try {
+      const cache = { fetchedAt: Date.now(), intel: normalize(await fetchIntelGraphql()), source: 'graphql' as const }
+      writeIntelCache(cache)
+      return cache
+    } catch (e) {
+      gqlError = e
+    }
+  }
+  try {
+    const cache = { fetchedAt: Date.now(), intel: normalize(await intelFromJson()), source: 'json' as const }
+    writeIntelCache(cache)
+    return cache
+  } catch (jsonError) {
+    throw new Error(`intel unavailable — graphql: ${describe(gqlError)}; json: ${describe(jsonError)}`)
+  }
 }

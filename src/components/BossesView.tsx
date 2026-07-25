@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
-import type { BossEscort, Intel, MapBosses } from '../types'
+import type { BossEscort, DataSource, Intel, MapBosses } from '../types'
 import { ago } from '../data/timeFormat'
 import { useExpandedGroups } from '../hooks/useExpandedGroups'
+import { BackupApiTag } from './BackupApiTag'
 
 interface Props {
   intel: Intel
   fetchedAt: number | null
+  /** Which upstream served the intel — 'json' means GraphQL was unreachable. */
+  source?: DataSource
   loading: boolean
   offline: boolean
   onRefresh: () => void
@@ -25,7 +28,7 @@ function chanceClass(chance: number): string {
   return 'chance-low'
 }
 
-export function BossesView({ intel, fetchedAt, loading, offline, onRefresh }: Props) {
+export function BossesView({ intel, fetchedAt, source, loading, offline, onRefresh }: Props) {
   // tick every 30s so "last seen" stays fresh
   const [, setTick] = useState(0)
   useEffect(() => {
@@ -71,6 +74,7 @@ export function BossesView({ intel, fetchedAt, loading, offline, onRefresh }: Pr
           </button>
           <span className="flow-hint">
             {fetchedAt && <>intel updated {ago(fetchedAt)}</>}
+            {source === 'json' && <BackupApiTag />}
             {offline && <em className="offline"> · offline, cached</em>}
           </span>
         </div>

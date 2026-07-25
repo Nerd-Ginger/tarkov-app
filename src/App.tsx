@@ -12,6 +12,7 @@ import { ItemModal } from './components/ItemModal'
 import { BartersView } from './components/BartersView'
 import { BestQuests } from './components/BestQuests'
 import { CraftsView } from './components/CraftsView'
+import { BackupApiTag } from './components/BackupApiTag'
 import { ProfileView } from './components/ProfileView'
 import { TradeModal } from './components/TradeModal'
 import type { TradeModalData } from './components/TradeModal'
@@ -102,7 +103,10 @@ function timeAgo(ts: number): string {
 }
 
 export default function App() {
-  const { quests, stations, ammo, barters, crafts, keys, status, offline, fetchedAt, refresh } = useQuestData()
+  const {
+    quests, stations, ammo, barters, crafts, keys, status, offline, fetchedAt,
+    source: questSource, refresh,
+  } = useQuestData()
   const { done, toggle, replaceDone } = useDone()
   const { inventory, setCount, applyDeltas, replaceInventory } = useInventory()
   const { built, replaceBuilt } = useHideout()
@@ -113,6 +117,7 @@ export default function App() {
     rows: priceRows,
     byId: pricesById,
     fetchedAt: pricesFetchedAt,
+    source: pricesSource,
     loading: pricesLoading,
     offline: pricesOffline,
     ensureFresh: ensureFreshPrices,
@@ -121,6 +126,7 @@ export default function App() {
   const {
     intel,
     fetchedAt: intelFetchedAt,
+    source: intelSource,
     loading: intelLoading,
     offline: intelOffline,
     ensureFresh: ensureFreshIntel,
@@ -519,6 +525,7 @@ export default function App() {
             {fetchedAt && (
               <span className="freshness">
                 data: tarkov.dev · {timeAgo(fetchedAt)}
+                {questSource === 'json' && <BackupApiTag />}
                 {offline && <em className="offline"> · offline, showing cached</em>}
               </span>
             )}
@@ -755,6 +762,7 @@ export default function App() {
               locked={locked}
               traderResets={intel.traderResets}
               fetchedAt={pricesFetchedAt}
+              source={pricesSource}
               loading={pricesLoading}
               offline={pricesOffline}
               onRefresh={() => void refreshPrices()}
@@ -785,6 +793,7 @@ export default function App() {
             <BossesView
               intel={intel}
               fetchedAt={intelFetchedAt}
+              source={intelSource}
               loading={intelLoading}
               offline={intelOffline}
               onRefresh={() => void refreshIntel()}

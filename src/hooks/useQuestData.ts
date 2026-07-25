@@ -39,7 +39,10 @@ export function useQuestData() {
 
   useEffect(() => {
     const current = readCache()
-    if (!current || Date.now() - current.fetchedAt > CACHE_MAX_AGE_MS) void refresh()
+    // json-sourced data is a stand-in for a downed GraphQL VPS — recheck sooner
+    // than the usual 12h so we pick GraphQL back up once it recovers
+    const maxAge = current?.source === 'json' ? 2 * 60 * 60 * 1000 : CACHE_MAX_AGE_MS
+    if (!current || Date.now() - current.fetchedAt > maxAge) void refresh()
   }, [refresh])
 
   const quests = useMemo(() => (cache ? normalizeTasks(cache.tasks) : []), [cache])
@@ -59,6 +62,7 @@ export function useQuestData() {
     status,
     offline,
     fetchedAt: cache?.fetchedAt ?? null,
+    source: cache?.source,
     refresh,
   }
 }

@@ -35,6 +35,7 @@ export function useIntel() {
   return {
     intel: cache?.intel ?? EMPTY,
     fetchedAt: cache?.fetchedAt ?? null,
+    source: cache?.source,
     loading,
     offline,
     ensureFresh,

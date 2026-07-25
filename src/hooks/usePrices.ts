@@ -37,5 +37,14 @@ export function usePrices() {
   const rows = cache?.prices ?? []
   const byId = useMemo(() => new Map(rows.map((p) => [p.id, p])), [rows])
 
-  return { rows, byId, fetchedAt: cache?.fetchedAt ?? null, loading, offline, ensureFresh, refresh }
+  return {
+    rows,
+    byId,
+    fetchedAt: cache?.fetchedAt ?? null,
+    source: cache?.source,
+    loading,
+    offline,
+    ensureFresh,
+    refresh,
+  }
 }

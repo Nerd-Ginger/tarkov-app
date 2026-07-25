@@ -1,5 +1,8 @@
-import type { RawAmmo, RawBarter, RawCraft, RawHideoutStation, RawMap, RawTask } from '../types'
+import type { DataSource, RawAmmo, RawBarter, RawCraft, RawHideoutStation, RawMap, RawTask } from '../types'
 import snapshot from '../data/snapshot.json'
+import { forceJson, tasksFromJson } from './jsonFallback'
+import type { JsonTaskData } from './jsonFallback'
+import { GRAPHQL_TIMEOUT_MS, describe } from './shared'
 
 const API_URL = 'https://api.tarkov.dev/graphql'
 const CACHE_KEY = 'tarkov.tasks.v11'
@@ -98,6 +101,8 @@ export interface TaskCache {
   barters: RawBarter[]
   crafts: RawCraft[]
   maps: RawMap[]
+  /** Which upstream served this data — absent on caches written before the fallback existed. */
+  source?: DataSource
 }
 
 export function readCache(): TaskCache | null {
@@ -124,11 +129,15 @@ function writeCache(cache: TaskCache) {
   }
 }
 
-export async function fetchTasks(): Promise<TaskCache> {
+type TaskData = Omit<TaskCache, 'fetchedAt' | 'source'>
+
+async function fetchTasksGraphql(): Promise<TaskData> {
   const res = await fetch(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query: QUERY }),
+    // without a deadline a hung VPS never fails, so the fallback never runs
+    signal: AbortSignal.timeout(GRAPHQL_TIMEOUT_MS),
   })
   if (!res.ok) throw new Error(`tarkov.dev API returned ${res.status}`)
   const json = await res.json()
@@ -146,7 +155,51 @@ export async function fetchTasks(): Promise<TaskCache> {
     if (row) xpById.set(row.id, row.experience)
   }
   for (const t of tasks) t.experience = xpById.get(t.id) ?? 0
-  const cache = { fetchedAt: Date.now(), tasks, stations, ammo, barters, crafts, maps }
-  writeCache(cache)
-  return cache
+  return { tasks, stations, ammo, barters, crafts, maps }
+}
+
+/**
+ * Fold JSON-sourced data onto the best data we already have.
+ *
+ * The JSON API carries ~11 fewer quests than GraphQL (Oil Change, War Never
+ * Changes, A Wedge Between Us and friends), so its task list is *unioned* with
+ * what we had rather than replacing it — otherwise those quests would vanish
+ * mid-wipe. The other datasets are swapped wholesale when non-empty: ids aren't
+ * guaranteed to line up across the two sources, and duplicate stations or
+ * barters would corrupt the normalizers.
+ */
+function mergeWithBase(json: JsonTaskData): TaskCache {
+  const base = readCache() ?? SNAPSHOT
+  const fromJson = new Set(json.tasks.map((t) => t.id))
+  return {
+    fetchedAt: Date.now(),
+    source: 'json',
+    tasks: [...json.tasks, ...base.tasks.filter((t) => !fromJson.has(t.id))],
+    stations: json.stations.length > 0 ? json.stations : base.stations,
+    // ammo has no JSON endpoint; null = couldn't derive it from item properties
+    ammo: json.ammo ?? base.ammo,
+    barters: json.barters.length > 0 ? json.barters : base.barters,
+    crafts: json.crafts.length > 0 ? json.crafts : base.crafts,
+    maps: json.maps.length > 0 ? json.maps : base.maps,
+  }
+}
+
+export async function fetchTasks(): Promise<TaskCache> {
+  let gqlError: unknown
+  if (!forceJson()) {
+    try {
+      const cache: TaskCache = { fetchedAt: Date.now(), source: 'graphql', ...(await fetchTasksGraphql()) }
+      writeCache(cache)
+      return cache
+    } catch (e) {
+      gqlError = e
+    }
+  }
+  try {
+    const cache = mergeWithBase(await tasksFromJson())
+    writeCache(cache)
+    return cache
+  } catch (jsonError) {
+    throw new Error(`quest data unavailable — graphql: ${describe(gqlError)}; json: ${describe(jsonError)}`)
+  }
 }

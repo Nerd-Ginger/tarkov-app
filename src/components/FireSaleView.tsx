@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { ItemRef, PriceRow, Profile, TraderReset } from '../types'
+import type { DataSource, ItemRef, PriceRow, Profile, TraderReset } from '../types'
 import { traderSortKey } from '../data/normalize'
 import { FLEA, buyOption, perSlot, sellOption } from '../data/tradeAccess'
 import type { BuyOption } from '../data/tradeAccess'
 import { ResetBanner } from './ResetBanner'
+import { BackupApiTag } from './BackupApiTag'
 
 const ROW_CAP = 400
 const FILTER_KEY = 'tarkov.fireSaleFilter.v1'
@@ -19,6 +20,8 @@ interface Props {
   locked: Set<string>
   traderResets: TraderReset[]
   fetchedAt: number | null
+  /** Which upstream served the prices — 'json' means GraphQL was unreachable. */
+  source?: DataSource
   loading: boolean
   offline: boolean
   onRefresh: () => void
@@ -94,6 +97,7 @@ export function FireSaleView({
   locked,
   traderResets,
   fetchedAt,
+  source,
   loading,
   offline,
   onRefresh,
@@ -312,6 +316,7 @@ export function FireSaleView({
           </button>
           <span className="flow-hint">
             {fetchedAt && <>prices {timeAgo(fetchedAt)}</>}
+            {source === 'json' && <BackupApiTag />}
             {offline && <em className="offline"> · offline, showing cached</em>}
           </span>
         </div>

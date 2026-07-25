@@ -1783,6 +1783,13 @@ tr.done .quest-link {
 }
 
 /* a cheaper buy offer exists above the player's loyalty */
+/* data came from the JSON API because GraphQL was down */
+.backup-api {
+  color: var(--cat-plant);
+  font-style: normal;
+  cursor: help;
+}
+
 .buy-locked {
   color: var(--text-dim);
   font-size: 11px;

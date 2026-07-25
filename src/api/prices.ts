@@ -1,4 +1,6 @@
-import type { PriceRow } from '../types'
+import type { DataSource, PriceRow } from '../types'
+import { forceJson, pricesFromJson } from './jsonFallback'
+import { GRAPHQL_TIMEOUT_MS, describe } from './shared'
 
 const API_URL = 'https://api.tarkov.dev/graphql'
 const CACHE_KEY = 'tarkov.prices.v5'
@@ -29,7 +31,7 @@ const PRICES_QUERY = `{
   }
 }`
 
-interface RawPriceItem {
+export interface RawPriceItem {
   id: string
   name: string
   shortName: string
@@ -48,6 +50,8 @@ interface RawPriceItem {
 export interface PricesCache {
   fetchedAt: number
   prices: PriceRow[]
+  /** Which upstream served this data — absent on caches written before the fallback existed. */
+  source?: DataSource
 }
 
 export function readPricesCache(): PricesCache | null {
@@ -142,17 +146,37 @@ function cap(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s
 }
 
-export async function fetchPrices(): Promise<PricesCache> {
+async function fetchPricesGraphql(): Promise<RawPriceItem[]> {
   const res = await fetch(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query: PRICES_QUERY }),
+    // without a deadline a hung VPS never fails, so the fallback never runs
+    signal: AbortSignal.timeout(GRAPHQL_TIMEOUT_MS),
   })
   if (!res.ok) throw new Error(`tarkov.dev API returned ${res.status}`)
   const json = await res.json()
   const items: RawPriceItem[] = (json?.data?.items ?? []).filter(Boolean)
   if (items.length === 0) throw new Error('tarkov.dev API returned no items')
-  const cache = { fetchedAt: Date.now(), prices: items.map(trim) }
-  writePricesCache(cache)
-  return cache
+  return items
+}
+
+export async function fetchPrices(): Promise<PricesCache> {
+  let gqlError: unknown
+  if (!forceJson()) {
+    try {
+      const cache = { fetchedAt: Date.now(), prices: (await fetchPricesGraphql()).map(trim), source: 'graphql' as const }
+      writePricesCache(cache)
+      return cache
+    } catch (e) {
+      gqlError = e
+    }
+  }
+  try {
+    const cache = { fetchedAt: Date.now(), prices: (await pricesFromJson()).map(trim), source: 'json' as const }
+    writePricesCache(cache)
+    return cache
+  } catch (jsonError) {
+    throw new Error(`prices unavailable — graphql: ${describe(gqlError)}; json: ${describe(jsonError)}`)
+  }
 }

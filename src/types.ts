@@ -241,6 +241,12 @@ export interface Craft {
 
 // ---- flea prices ----
 
+/**
+ * Which upstream served a cached dataset. GraphQL is primary; 'json' means
+ * tarkov.dev's GraphQL VPS was unreachable and the JSON API answered instead.
+ */
+export type DataSource = 'graphql' | 'json'
+
 /** Trimmed live price row (cached ~1h; never bundled in the snapshot). */
 export interface PriceRow {
   id: string
