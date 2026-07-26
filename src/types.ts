@@ -182,12 +182,19 @@ export interface Ammo {
   tracer: boolean
 }
 
-// ---- stims ----
+// ---- meds (stims, painkillers, buffed food) ----
+
+/** Which family a med belongs to — drives the filter chips and the roles. */
+export type MedKind = 'Stim' | 'Painkiller' | 'Food'
 
 /**
- * One timed effect on a stimulant. Source-independent on purpose: GraphQL exposes
+ * One timed effect on a consumable. Source-independent on purpose: GraphQL exposes
  * the skill as `skillName` (alongside a `skill: Skill` object), the JSON API as a
  * bare `skill` string, so both readers flatten to `skillName` here.
+ *
+ * Painkillers and food don't ship a `stimEffects` array at all — their
+ * painkillerDuration / energyImpact / hydration numbers are synthesised into this
+ * same shape by the adapters, so everything downstream has one path.
  */
 export interface RawStimEffect {
   type: string
@@ -206,9 +213,12 @@ export interface RawStimEffect {
  */
 export interface RawStim {
   item: ItemRef
+  kind: MedKind
   useTime: number | null
   cures: string[]
   stimEffects: RawStimEffect[]
+  /** Doses per item — painkillers and balms carry several. */
+  uses?: number | null
 }
 
 export type StimSign = 'buff' | 'debuff' | 'neutral'
@@ -217,11 +227,13 @@ export type StimRole =
   | 'Combat'
   | 'Detox'
   | 'Bleed control'
+  | 'Pain relief'
   | 'Warmth'
   | 'Carry weight'
   | 'Stamina'
   | 'Healing'
   | 'Skills'
+  | 'Nourishment'
   | 'Situational'
 
 export interface StimEffect {
@@ -250,7 +262,10 @@ export interface Stim {
   id: string
   name: string
   shortName: string
+  kind: MedKind
   useTime: number
+  /** Doses per item (1 when the API doesn't say). */
+  uses: number
   /** Display labels: 'Pain', 'Heavy bleeding'. */
   cures: string[]
   /** Raw cure ids, for the pairing logic. */

@@ -57,7 +57,7 @@ type View =
   | 'keys'
   | 'bosses'
   | 'ammo'
-  | 'stims'
+  | 'meds'
   | 'profile'
 const VIEW_KEY = 'tarkov.view.v1'
 const VIEWS: { id: View; label: string }[] = [
@@ -71,7 +71,7 @@ const VIEWS: { id: View; label: string }[] = [
   { id: 'keys', label: 'Keys' },
   { id: 'bosses', label: 'Bosses' },
   { id: 'ammo', label: 'Ammo' },
-  { id: 'stims', label: 'Stims' },
+  { id: 'meds', label: 'Meds' },
   { id: 'profile', label: 'Profile' },
 ]
 
@@ -85,7 +85,7 @@ const OTHER_VIEWS = new Set<string>([
   'keys',
   'bosses',
   'ammo',
-  'stims',
+  'meds',
   'profile',
 ])
 
@@ -832,21 +832,24 @@ export default function App() {
           </section>
         )}
 
-        {view === 'stims' && (
+        {view === 'meds' && (
           <section>
-            <h2>Stims</h2>
+            <h2>Meds</h2>
             <p className="legend">
-              Every injector, what the effect data says it's for, and what it pairs with. Click a row for the
-              full effect list with timings (<strong>delay → end</strong>, relative to injection).{' '}
+              Everything that buffs or debuffs you — stim injectors, painkillers and balms, and the food and
+              drink that carry real effects. Anything with no buff or debuff at all (bandages, splints, plain
+              water) is left out. Click a row for the full effect list with timings (<strong>delay → end</strong>,
+              relative to use).{' '}
               <strong className="delta-up">Buffs</strong> and <strong className="warn-text">debuffs</strong> come
               from the sign of each effect's value; a <strong>·</strong> means the API ships no number and the
-              effect's presence is the whole story. <strong>Role</strong> is derived from which effect types a
-              stim applies — the first tag is a sorting key, not a recommendation, so check the others.{' '}
-              <strong>⚠</strong> counts stims this actively cancels out. Every injector takes 2s to use, so that
-              column is only there in case that ever changes. Pairings are effect-overlap maths on the API data —
-              the game's own stacking rules aren't published, so treat them as a starting point. SJ9 is a fair
-              example of the limits: its negative body temperature is the <em>point</em> in game (thermal
-              masking), but sign-based classification can only read it as a downside.
+              effect's presence is the whole story, and <strong>one-off</strong> marks an instant change rather
+              than a rate. <strong>Role</strong> is derived from which effect types an item applies — the first
+              tag is a sorting key, not a recommendation, so check the others. <strong>⚠</strong> counts items
+              this actively cancels out. Painkillers show their doses as <strong>×5</strong> next to the use
+              time. Pairings are effect-overlap maths on the API data — the game's own stacking rules aren't
+              published, so treat them as a starting point. SJ9 is a fair example of the limits: its negative
+              body temperature is the <em>point</em> in game (thermal masking), but sign-based classification
+              can only read it as a downside.
             </p>
             <StimsView {...favProps} stims={stims} />
           </section>

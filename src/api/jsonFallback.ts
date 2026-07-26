@@ -442,40 +442,94 @@ export async function tasksFromJson(): Promise<JsonTaskData> {
   }
 }
 
+/** Reads a JSON stimEffects array into our shape. GraphQL calls the skill field
+ *  `skillName`; JSON uses a bare `skill`, mapped here so both sources agree. */
+function readStimEffects(raw: unknown): RawStimEffect[] {
+  if (!Array.isArray(raw)) return []
+  const out: RawStimEffect[] = []
+  for (const e of raw as Record<string, unknown>[]) {
+    if (!e || typeof e.type !== 'string') continue
+    out.push({
+      type: e.type,
+      // default 1, not 0 — a missing chance must not silently zero the weighting
+      chance: typeof e.chance === 'number' ? e.chance : 1,
+      delay: typeof e.delay === 'number' ? e.delay : 0,
+      duration: typeof e.duration === 'number' ? e.duration : 0,
+      value: typeof e.value === 'number' ? e.value : 0,
+      percent: e.percent === true,
+      skillName: typeof e.skill === 'string' ? e.skill : null,
+    })
+  }
+  return out
+}
+
+/** One-off impact (energy/hydration), modelled as a zero-duration effect. */
+function impact(type: string, value: unknown): RawStimEffect[] {
+  return typeof value === 'number' && value !== 0
+    ? [{ type, chance: 1, delay: 0, duration: 0, value, percent: false, skillName: null }]
+    : []
+}
+
 /**
- * JSON has no stim endpoint — effects live on the item's `properties`, same as
+ * JSON has no meds endpoint — effects live on the item's `properties`, same as
  * ammo. Returns null when nothing maps so the caller keeps whatever it had rather
  * than blanking the view (effect data barely moves between patches).
  *
- * `types` is ["injectors","meds","provisions"] on all of them with no 'stims'
- * entry, so propertiesType is the only reliable discriminator. GraphQL calls the
- * skill field `skillName`; JSON uses a bare `skill`, mapped here so RawStim is
- * identical from either source.
+ * Three shapes feed one model. Stims carry `stimEffects` directly. Painkillers
+ * carry none at all — their painkillerDuration/energyImpact/hydrationImpact are
+ * synthesised into effects here. Food carries both `stimEffects` and flat
+ * energy/hydration numbers. Food with no effects at all (plain water, crackers)
+ * is skipped: it has nothing to say on a buff/debuff page.
  */
 function stimsFromItems(items: JsonItem[], iEn: (k: string) => string): RawStim[] | null {
   const rows: RawStim[] = []
   for (const i of items) {
     const p = i.properties
-    if (!p || p.propertiesType !== 'ItemPropertiesStim') continue
-    if (!Array.isArray(p.stimEffects)) continue
-    const stimEffects: RawStimEffect[] = []
-    for (const raw of p.stimEffects as Record<string, unknown>[]) {
-      if (!raw || typeof raw.type !== 'string') continue
-      stimEffects.push({
-        type: raw.type,
-        // default 1, not 0 — a missing chance must not silently zero the weighting
-        chance: typeof raw.chance === 'number' ? raw.chance : 1,
-        delay: typeof raw.delay === 'number' ? raw.delay : 0,
-        duration: typeof raw.duration === 'number' ? raw.duration : 0,
-        value: typeof raw.value === 'number' ? raw.value : 0,
-        percent: raw.percent === true,
-        skillName: typeof raw.skill === 'string' ? raw.skill : null,
-      })
+    if (!p) continue
+    const type = p.propertiesType
+    let kind: RawStim['kind']
+    let stimEffects: RawStimEffect[]
+
+    if (type === 'ItemPropertiesStim') {
+      kind = 'Stim'
+      stimEffects = readStimEffects(p.stimEffects)
+    } else if (type === 'ItemPropertiesPainkiller') {
+      kind = 'Painkiller'
+      stimEffects = [
+        // the duration is the whole point; there's no magnitude to show
+        ...(typeof p.painkillerDuration === 'number' && p.painkillerDuration > 0
+          ? [
+              {
+                type: 'PainRelief',
+                chance: 1,
+                delay: 0,
+                duration: p.painkillerDuration,
+                value: 0,
+                percent: false,
+                skillName: null,
+              },
+            ]
+          : []),
+        ...impact('EnergyImpact', p.energyImpact),
+        ...impact('HydrationImpact', p.hydrationImpact),
+      ]
+    } else if (type === 'ItemPropertiesFoodDrink') {
+      kind = 'Food'
+      const buffs = readStimEffects(p.stimEffects)
+      // plain food and water only restore energy/hydration — that's nourishment,
+      // not a buff, and this page is about buffs. Skip unless it does something.
+      if (buffs.length === 0) continue
+      stimEffects = [...buffs, ...impact('EnergyImpact', p.energy), ...impact('HydrationImpact', p.hydration)]
+    } else {
+      continue
     }
+
     if (stimEffects.length === 0) continue
     rows.push({
       item: { id: i.id, name: iEn(`${i.id} Name`), shortName: iEn(`${i.id} ShortName`) },
+      kind,
       useTime: typeof p.useTime === 'number' ? p.useTime : null,
+      uses: typeof p.uses === 'number' ? p.uses : null,
       cures: Array.isArray(p.cures)
         ? (p.cures as unknown[]).filter((c): c is string => typeof c === 'string')
         : [],

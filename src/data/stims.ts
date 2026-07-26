@@ -29,6 +29,9 @@ const PRESENCE_ONLY: Record<string, StimSign> = {
   Pain: 'debuff',
   Removeallbloodlosses: 'buff',
   Antidote: 'buff',
+  // synthesised from a painkiller's painkillerDuration — the duration carries the
+  // information, there is no magnitude
+  PainRelief: 'buff',
 }
 
 /**
@@ -45,6 +48,16 @@ const SIGNED_TYPES: Record<string, 1 | -1> = {
   WeightLimit: 1,
   BodyTemperature: 1,
   DamageModifier: 1,
+  // one-off hits rather than rates: painkillers cost energy, food restores it
+  EnergyImpact: 1,
+  HydrationImpact: 1,
+}
+
+/** Instant one-off changes — shown without a time window, since they aren't rates. */
+const INSTANT_TYPES = new Set(['EnergyImpact', 'HydrationImpact'])
+
+export function isInstantType(type: string): boolean {
+  return INSTANT_TYPES.has(type)
 }
 
 /**
@@ -69,6 +82,9 @@ const EFFECT_LABELS: Record<string, string> = {
   Removeallbloodlosses: 'Stops all bleeding',
   Antidote: 'Antidote',
   Pain: 'Pain',
+  PainRelief: 'Pain relief',
+  EnergyImpact: 'Energy',
+  HydrationImpact: 'Hydration',
 }
 
 const CURE_LABELS: Record<string, string> = {
@@ -141,6 +157,10 @@ const ROLE_RULES: { role: StimRole; test: (effects: StimEffect[], cures: string[
     role: 'Bleed control',
     test: (e, c) => e.some((x) => x.type === 'Removeallbloodlosses') || c.some((x) => x.endsWith('Bleeding')),
   },
+  {
+    role: 'Pain relief',
+    test: (e, c) => e.some((x) => x.type === 'PainRelief') || c.includes('Pain'),
+  },
   { role: 'Warmth', test: (e) => e.some((x) => x.type === 'BodyTemperature' && x.sign === 'buff') },
   { role: 'Carry weight', test: (e) => e.some((x) => x.type === 'WeightLimit' && x.sign === 'buff') },
   {
@@ -149,6 +169,11 @@ const ROLE_RULES: { role: StimRole; test: (effects: StimEffect[], cures: string[
   },
   { role: 'Healing', test: (e) => e.some((x) => x.type === 'HealthRate' && x.sign === 'buff') },
   { role: 'Skills', test: (e) => e.some((x) => x.type === 'Skill' && x.sign === 'buff') },
+  {
+    role: 'Nourishment',
+    test: (e) =>
+      e.some((x) => (x.type === 'EnergyImpact' || x.type === 'HydrationImpact') && x.sign === 'buff'),
+  },
 ]
 
 /** Display/sort order for roles — same order as the rules above. */
@@ -156,12 +181,14 @@ export const ROLE_ORDER: Record<StimRole, number> = {
   Combat: 0,
   Detox: 1,
   'Bleed control': 2,
-  Warmth: 3,
-  'Carry weight': 4,
-  Stamina: 5,
-  Healing: 6,
-  Skills: 7,
-  Situational: 8,
+  'Pain relief': 3,
+  Warmth: 4,
+  'Carry weight': 5,
+  Stamina: 6,
+  Healing: 7,
+  Skills: 8,
+  Nourishment: 9,
+  Situational: 10,
 }
 
 const SIGN_ORDER: Record<StimSign, number> = { buff: 0, neutral: 1, debuff: 2 }
@@ -206,7 +233,9 @@ export function normalizeStims(raw: RawStim[]): Stim[] {
       id: s.item.id,
       name: s.item.name,
       shortName: s.item.shortName,
+      kind: s.kind,
       useTime: s.useTime ?? 0,
+      uses: s.uses ?? 1,
       cures: curesRaw.map(cureLabel),
       curesRaw,
       effects,

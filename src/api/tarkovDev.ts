@@ -15,7 +15,7 @@ import type { JsonTaskData } from './jsonFallback'
 import { GRAPHQL_TIMEOUT_MS, describe } from './shared'
 
 const API_URL = 'https://api.tarkov.dev/graphql'
-const CACHE_KEY = 'tarkov.tasks.v12'
+const CACHE_KEY = 'tarkov.tasks.v13'
 export const CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000 // 12h
 
 /**
@@ -118,7 +118,7 @@ const QUERY = `{
  * bare `skill`.
  */
 const STIM_QUERY = `{
-  stims: items(lang: en, gameMode: pve, type: injectors) {
+  stims: items(lang: en, gameMode: pve, types: [injectors, meds, provisions]) {
     id
     name
     shortName
@@ -126,6 +126,19 @@ const STIM_QUERY = `{
       ... on ItemPropertiesStim {
         useTime
         cures
+        stimEffects { type chance delay duration value percent skillName }
+      }
+      ... on ItemPropertiesPainkiller {
+        uses
+        useTime
+        cures
+        painkillerDuration
+        energyImpact
+        hydrationImpact
+      }
+      ... on ItemPropertiesFoodDrink {
+        energy
+        hydration
         stimEffects { type chance delay duration value percent skillName }
       }
     }
@@ -136,11 +149,25 @@ interface GqlStimItem {
   id: string
   name: string | null
   shortName: string | null
+  /** Union of the three fragments — which fields land tells us the kind. */
   properties: {
     useTime?: number | null
+    uses?: number | null
     cures?: (string | null)[] | null
     stimEffects?: (RawStimEffect | null)[] | null
+    painkillerDuration?: number | null
+    energyImpact?: number | null
+    hydrationImpact?: number | null
+    energy?: number | null
+    hydration?: number | null
   } | null
+}
+
+/** One-off impact (energy/hydration), modelled as a zero-duration effect. */
+function gqlImpact(type: string, value: number | null | undefined): RawStimEffect[] {
+  return typeof value === 'number' && value !== 0
+    ? [{ type, chance: 1, delay: 0, duration: 0, value, percent: false, skillName: null }]
+    : []
 }
 
 export interface TaskCache {
@@ -222,16 +249,54 @@ async function fetchStimsGraphql(): Promise<RawStim[]> {
   if (!res.ok) throw new Error(`tarkov.dev API returned ${res.status}`)
   const json = await res.json()
   const rows = (json?.data?.stims ?? []) as (GqlStimItem | null)[]
-  return rows.flatMap((i) => {
+  return rows.flatMap((i): RawStim[] => {
     const p = i?.properties
-    // no stimEffects = an injector that isn't a stim, or the fragment didn't resolve
-    if (!i || !p || !Array.isArray(p.stimEffects)) return []
-    const stimEffects = p.stimEffects.filter((e): e is RawStimEffect => e != null)
+    if (!i || !p) return []
+    const own = (p.stimEffects ?? []).filter((e): e is RawStimEffect => e != null)
+
+    // which fragment resolved tells us the kind — painkillers are the only ones
+    // carrying painkillerDuration, food the only ones carrying energy/hydration
+    let kind: RawStim['kind']
+    let stimEffects: RawStimEffect[]
+    if (typeof p.painkillerDuration === 'number' || typeof p.energyImpact === 'number') {
+      kind = 'Painkiller'
+      stimEffects = [
+        ...(typeof p.painkillerDuration === 'number' && p.painkillerDuration > 0
+          ? [
+              {
+                type: 'PainRelief',
+                chance: 1,
+                delay: 0,
+                duration: p.painkillerDuration,
+                value: 0,
+                percent: false,
+                skillName: null,
+              },
+            ]
+          : []),
+        ...gqlImpact('EnergyImpact', p.energyImpact),
+        ...gqlImpact('HydrationImpact', p.hydrationImpact),
+      ]
+    } else if (typeof p.energy === 'number' || typeof p.hydration === 'number') {
+      kind = 'Food'
+      // plain food and water only restore energy/hydration — nourishment, not a
+      // buff. Skip unless it carries a real effect.
+      if (own.length === 0) return []
+      stimEffects = [...own, ...gqlImpact('EnergyImpact', p.energy), ...gqlImpact('HydrationImpact', p.hydration)]
+    } else {
+      kind = 'Stim'
+      stimEffects = own
+    }
+
+    // nothing to say on a buff/debuff page (bandages, plain water, Morphine's
+    // sibling meds) — and an unresolved fragment lands here too
     if (stimEffects.length === 0) return []
     return [
       {
         item: { id: i.id, name: i.name ?? '', shortName: i.shortName ?? '' },
+        kind,
         useTime: typeof p.useTime === 'number' ? p.useTime : null,
+        uses: typeof p.uses === 'number' ? p.uses : null,
         cures: (p.cures ?? []).filter((c): c is string => typeof c === 'string'),
         stimEffects,
       },

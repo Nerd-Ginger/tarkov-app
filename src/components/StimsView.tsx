@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import type { Stim, StimEffect, StimPairing, StimRole } from '../types'
-import { ROLE_ORDER, buildStimPairings, isPercentType } from '../data/stims'
+import type { MedKind, Stim, StimEffect, StimPairing, StimRole } from '../types'
+import { ROLE_ORDER, buildStimPairings, isInstantType, isPercentType } from '../data/stims'
 import { useExpandedGroups } from '../hooks/useExpandedGroups'
 import type { FavoriteProps } from '../hooks/useFavorites'
 import { favoritesFirst } from '../data/favorites'
@@ -19,7 +19,7 @@ const COLUMNS: { field: SortField; label: string; title?: string; num?: boolean 
   { field: 'buffs', label: 'Buffs', title: 'Positively-signed effects', num: true },
   { field: 'debuffs', label: 'Debuffs', title: 'Negatively-signed effects', num: true },
   { field: 'duration', label: 'Ends', title: 'When the last effect stops (delay + duration)', num: true },
-  { field: 'useTime', label: 'Use', title: 'Injection time', num: true },
+  { field: 'useTime', label: 'Use', title: 'Time to use, and doses per item', num: true },
 ]
 
 const COL_COUNT = COLUMNS.length + 1 // + the conflict column
@@ -53,6 +53,7 @@ function signClass(sign: StimEffect['sign']): string {
 
 export function StimsView({ stims, favorites, pinned, onToggleFavorite, onTogglePinned }: Props) {
   const [roles, setRoles] = useState<Set<StimRole>>(new Set())
+  const [kinds, setKinds] = useState<Set<MedKind>>(new Set())
   const [search, setSearch] = useState('')
   const [sortField, setSortField] = useState<SortField | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>('desc')
@@ -60,6 +61,12 @@ export function StimsView({ stims, favorites, pinned, onToggleFavorite, onToggle
   const { expanded, toggle, expandAll, collapseAll } = useExpandedGroups('stims')
 
   const pairings = useMemo(() => buildStimPairings(stims), [stims])
+
+  const allKinds = useMemo(() => {
+    const order: MedKind[] = ['Stim', 'Painkiller', 'Food']
+    const present = new Set(stims.map((s) => s.kind))
+    return order.filter((k) => present.has(k))
+  }, [stims])
 
   const allRoles = useMemo(() => {
     const s = new Set(stims.map((x) => x.role))
@@ -91,6 +98,7 @@ export function StimsView({ stims, favorites, pinned, onToggleFavorite, onToggle
 
   const rows = useMemo(() => {
     let list = stims
+    if (kinds.size > 0) list = list.filter((s) => kinds.has(s.kind))
     if (roles.size > 0) list = list.filter((s) => s.roles.some((r) => roles.has(r)))
     if (search) {
       const q = search.toLowerCase()
@@ -120,7 +128,7 @@ export function StimsView({ stims, favorites, pinned, onToggleFavorite, onToggle
     })
     // cancelCount reads `pairings`, which is memoized on `stims`
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stims, roles, search, sortField, sortDir, pairings, favorites, pinned])
+  }, [stims, kinds, roles, search, sortField, sortDir, pairings, favorites, pinned])
 
   const arrow = (f: SortField) => (sortField === f ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '')
   // searching reveals matches without needing to expand them by hand
@@ -133,6 +141,27 @@ export function StimsView({ stims, favorites, pinned, onToggleFavorite, onToggle
   return (
     <div className="ammo-view">
       <div className="filter-bar">
+        <div className="filter-row">
+          <span className="filter-label">Type</span>
+          <div className="chip-group">
+            {allKinds.map((k) => (
+              <button
+                key={k}
+                className={`chip ${kinds.has(k) ? 'active' : ''}`}
+                onClick={() =>
+                  setKinds((prev) => {
+                    const next = new Set(prev)
+                    if (next.has(k)) next.delete(k)
+                    else next.add(k)
+                    return next
+                  })
+                }
+              >
+                {k === 'Food' ? 'Food & drink' : k === 'Painkiller' ? 'Painkillers' : 'Stims'}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="filter-row">
           <span className="filter-label">Role</span>
           <div className="chip-group">
@@ -161,11 +190,12 @@ export function StimsView({ stims, favorites, pinned, onToggleFavorite, onToggle
           <button className="clear-btn" onClick={collapseAll}>
             Collapse all
           </button>
-          {(roles.size > 0 || search) && (
+          {(roles.size > 0 || kinds.size > 0 || search) && (
             <button
               className="clear-btn"
               onClick={() => {
                 setRoles(new Set())
+                setKinds(new Set())
                 setSearch('')
               }}
             >
@@ -271,7 +301,10 @@ function StimRows({
         <td className={`num-col ${stim.buffs > 0 ? 'delta-up' : ''}`}>{stim.buffs}</td>
         <td className={`num-col ${stim.debuffs > 0 ? 'delta-down' : ''}`}>{stim.debuffs}</td>
         <td className="num-col">{secs(stim.duration)}</td>
-        <td className="num-col">{stim.useTime > 0 ? `${stim.useTime}s` : '–'}</td>
+        <td className="num-col">
+          {stim.useTime > 0 ? `${stim.useTime}s` : '–'}
+          {stim.uses > 1 && <span className="stim-note"> ×{stim.uses}</span>}
+        </td>
         <td
           className={`rate-col rate-${tier}`}
           title={cancels.length === 0 ? 'cancels nothing out' : `cancels out: ${cancels.map((c) => c.shortName || c.name).join(', ')}`}
@@ -304,7 +337,7 @@ function StimRows({
                     {effectValue(e)}
                   </span>
                   <span className="stim-note">
-                    {e.delay}s → {e.endsAt}s
+                    {isInstantType(e.type) ? 'one-off' : `${e.delay}s → ${e.endsAt}s`}
                   </span>
                   <span className="stim-note">{e.chance < 1 ? `${Math.round(e.chance * 100)}%` : ''}</span>
                 </div>
