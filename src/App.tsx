@@ -5,6 +5,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AmmoView } from './components/AmmoView'
+import { StimsView } from './components/StimsView'
 import { BossesView } from './components/BossesView'
 import { FireSaleView } from './components/FireSaleView'
 import { KeysView } from './components/KeysView'
@@ -55,6 +56,7 @@ type View =
   | 'keys'
   | 'bosses'
   | 'ammo'
+  | 'stims'
   | 'profile'
 const VIEW_KEY = 'tarkov.view.v1'
 const VIEWS: { id: View; label: string }[] = [
@@ -68,6 +70,7 @@ const VIEWS: { id: View; label: string }[] = [
   { id: 'keys', label: 'Keys' },
   { id: 'bosses', label: 'Bosses' },
   { id: 'ammo', label: 'Ammo' },
+  { id: 'stims', label: 'Stims' },
   { id: 'profile', label: 'Profile' },
 ]
 
@@ -81,6 +84,7 @@ const OTHER_VIEWS = new Set<string>([
   'keys',
   'bosses',
   'ammo',
+  'stims',
   'profile',
 ])
 
@@ -104,7 +108,7 @@ function timeAgo(ts: number): string {
 
 export default function App() {
   const {
-    quests, stations, ammo, barters, crafts, keys, status, offline, fetchedAt,
+    quests, stations, ammo, barters, crafts, keys, stims, status, offline, fetchedAt,
     source: questSource, refresh,
   } = useQuestData()
   const { done, toggle, replaceDone } = useDone()
@@ -812,6 +816,26 @@ export default function App() {
               to sort, filter by caliber.
             </p>
             <AmmoView ammo={ammo} />
+          </section>
+        )}
+
+        {view === 'stims' && (
+          <section>
+            <h2>Stims</h2>
+            <p className="legend">
+              Every injector, what the effect data says it's for, and what it pairs with. Click a row for the
+              full effect list with timings (<strong>delay → end</strong>, relative to injection).{' '}
+              <strong className="delta-up">Buffs</strong> and <strong className="warn-text">debuffs</strong> come
+              from the sign of each effect's value; a <strong>·</strong> means the API ships no number and the
+              effect's presence is the whole story. <strong>Role</strong> is derived from which effect types a
+              stim applies — the first tag is a sorting key, not a recommendation, so check the others.{' '}
+              <strong>⚠</strong> counts stims this actively cancels out. Every injector takes 2s to use, so that
+              column is only there in case that ever changes. Pairings are effect-overlap maths on the API data —
+              the game's own stacking rules aren't published, so treat them as a starting point. SJ9 is a fair
+              example of the limits: its negative body temperature is the <em>point</em> in game (thermal
+              masking), but sign-based classification can only read it as a downside.
+            </p>
+            <StimsView stims={stims} />
           </section>
         )}
 

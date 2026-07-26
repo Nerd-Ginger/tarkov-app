@@ -2173,6 +2173,52 @@ th.num-col {
   font-weight: 700;
 }
 
+/* ---- stims ---- */
+
+.stim-row {
+  cursor: pointer;
+  user-select: none;
+}
+
+/* th.rate-col sets cursor: help for the ammo grid; this one is clickable */
+th.rate-col.sortable {
+  cursor: pointer;
+}
+
+/* expanded stim: effect list as label / value / window / chance */
+.stim-effects {
+  display: grid;
+  grid-template-columns: minmax(150px, max-content) 70px 120px 45px;
+  gap: 2px 14px;
+  padding: 6px 0 8px 22px;
+  font-size: 12px;
+}
+
+.stim-effect-row {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+}
+
+.stim-cures {
+  padding: 6px 0 2px 22px;
+}
+
+.stim-pairs {
+  padding: 2px 0 4px 22px;
+}
+
+.stim-line {
+  margin: 0 0 3px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.stim-note {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
 .pen-1 { color: #b0554d; }
 .pen-2 { color: #c9764a; }
 .pen-3 { color: #d0a24e; }

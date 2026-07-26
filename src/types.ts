@@ -182,6 +182,105 @@ export interface Ammo {
   tracer: boolean
 }
 
+// ---- stims ----
+
+/**
+ * One timed effect on a stimulant. Source-independent on purpose: GraphQL exposes
+ * the skill as `skillName` (alongside a `skill: Skill` object), the JSON API as a
+ * bare `skill` string, so both readers flatten to `skillName` here.
+ */
+export interface RawStimEffect {
+  type: string
+  chance: number
+  delay: number
+  duration: number
+  value: number
+  percent: boolean
+  skillName: string | null
+}
+
+/**
+ * A stimulant injector. Unlike RawAmmo this isn't the literal GraphQL shape —
+ * GraphQL returns it under Item.properties behind a union fragment, so each source
+ * flattens to this once rather than leaking the unwrap into the normalizer.
+ */
+export interface RawStim {
+  item: ItemRef
+  useTime: number | null
+  cures: string[]
+  stimEffects: RawStimEffect[]
+}
+
+export type StimSign = 'buff' | 'debuff' | 'neutral'
+
+export type StimRole =
+  | 'Combat'
+  | 'Detox'
+  | 'Bleed control'
+  | 'Warmth'
+  | 'Carry weight'
+  | 'Stamina'
+  | 'Healing'
+  | 'Skills'
+  | 'Situational'
+
+export interface StimEffect {
+  /** Raw API type id: 'MaxStamina', 'Skill', 'HandsTremor'… */
+  type: string
+  /** Skill name for Skill effects ('Endurance'), '' otherwise. */
+  skill: string
+  /** Comparison identity — 'MaxStamina', or 'Skill:Endurance' for skill effects. */
+  key: string
+  /** Display label: 'Max stamina', 'Endurance skill'. */
+  label: string
+  sign: StimSign
+  /** True when the API always ships value 0 for this type — show a marker, not a number. */
+  presenceOnly: boolean
+  value: number
+  /** Raw API flag. Unreliable across items — kept for tooltips only. */
+  percent: boolean
+  chance: number
+  delay: number
+  duration: number
+  /** delay + duration — when the effect stops. */
+  endsAt: number
+}
+
+export interface Stim {
+  id: string
+  name: string
+  shortName: string
+  useTime: number
+  /** Display labels: 'Pain', 'Heavy bleeding'. */
+  cures: string[]
+  /** Raw cure ids, for the pairing logic. */
+  curesRaw: string[]
+  /** Chronological: delay asc, buffs before debuffs, then |value| desc. */
+  effects: StimEffect[]
+  buffs: number
+  debuffs: number
+  /** Latest endsAt across all effects. */
+  duration: number
+  /** First matching role rule. A sorting key, not a verdict. */
+  role: StimRole
+  /** Every qualifying role, primary first. */
+  roles: StimRole[]
+  /** Any effect with chance < 1. */
+  random: boolean
+  /** Effect keys this stim both buffs and debuffs — its own gain is later reversed. */
+  selfReversed: string[]
+}
+
+export interface StimPairing {
+  stimId: string
+  name: string
+  shortName: string
+  kind: 'cancels' | 'minor' | 'overlaps' | 'complements'
+  score: number
+  /** One short human-readable phrase each, max 3. */
+  reasons: string[]
+}
+
 // ---- barters & crafts ----
 
 export interface RawTradeItem {

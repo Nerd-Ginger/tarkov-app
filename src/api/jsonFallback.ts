@@ -6,6 +6,8 @@ import type {
   RawHideoutStation,
   RawMap,
   RawObjective,
+  RawStim,
+  RawStimEffect,
   RawTask,
   RawTradeItem,
 } from '../types'
@@ -274,6 +276,7 @@ export interface JsonTaskData {
   barters: RawBarter[]
   crafts: RawCraft[]
   maps: RawMap[]
+  stims: RawStim[] | null
 }
 
 export async function tasksFromJson(): Promise<JsonTaskData> {
@@ -419,7 +422,58 @@ export async function tasksFromJson(): Promise<JsonTaskData> {
     })),
   }))
 
-  return { tasks, stations, ammo: ammoFromItems(items, iEn), barters, crafts, maps }
+  return {
+    tasks,
+    stations,
+    ammo: ammoFromItems(items, iEn),
+    barters,
+    crafts,
+    maps,
+    stims: stimsFromItems(items, iEn),
+  }
+}
+
+/**
+ * JSON has no stim endpoint — effects live on the item's `properties`, same as
+ * ammo. Returns null when nothing maps so the caller keeps whatever it had rather
+ * than blanking the view (effect data barely moves between patches).
+ *
+ * `types` is ["injectors","meds","provisions"] on all of them with no 'stims'
+ * entry, so propertiesType is the only reliable discriminator. GraphQL calls the
+ * skill field `skillName`; JSON uses a bare `skill`, mapped here so RawStim is
+ * identical from either source.
+ */
+function stimsFromItems(items: JsonItem[], iEn: (k: string) => string): RawStim[] | null {
+  const rows: RawStim[] = []
+  for (const i of items) {
+    const p = i.properties
+    if (!p || p.propertiesType !== 'ItemPropertiesStim') continue
+    if (!Array.isArray(p.stimEffects)) continue
+    const stimEffects: RawStimEffect[] = []
+    for (const raw of p.stimEffects as Record<string, unknown>[]) {
+      if (!raw || typeof raw.type !== 'string') continue
+      stimEffects.push({
+        type: raw.type,
+        // default 1, not 0 — a missing chance must not silently zero the weighting
+        chance: typeof raw.chance === 'number' ? raw.chance : 1,
+        delay: typeof raw.delay === 'number' ? raw.delay : 0,
+        duration: typeof raw.duration === 'number' ? raw.duration : 0,
+        value: typeof raw.value === 'number' ? raw.value : 0,
+        percent: raw.percent === true,
+        skillName: typeof raw.skill === 'string' ? raw.skill : null,
+      })
+    }
+    if (stimEffects.length === 0) continue
+    rows.push({
+      item: { id: i.id, name: iEn(`${i.id} Name`), shortName: iEn(`${i.id} ShortName`) },
+      useTime: typeof p.useTime === 'number' ? p.useTime : null,
+      cures: Array.isArray(p.cures)
+        ? (p.cures as unknown[]).filter((c): c is string => typeof c === 'string')
+        : [],
+      stimEffects,
+    })
+  }
+  return rows.length > 0 ? rows : null
 }
 
 /**

@@ -1,11 +1,21 @@
-import type { DataSource, RawAmmo, RawBarter, RawCraft, RawHideoutStation, RawMap, RawTask } from '../types'
+import type {
+  DataSource,
+  RawAmmo,
+  RawBarter,
+  RawCraft,
+  RawHideoutStation,
+  RawMap,
+  RawStim,
+  RawStimEffect,
+  RawTask,
+} from '../types'
 import snapshot from '../data/snapshot.json'
 import { forceJson, tasksFromJson } from './jsonFallback'
 import type { JsonTaskData } from './jsonFallback'
 import { GRAPHQL_TIMEOUT_MS, describe } from './shared'
 
 const API_URL = 'https://api.tarkov.dev/graphql'
-const CACHE_KEY = 'tarkov.tasks.v11'
+const CACHE_KEY = 'tarkov.tasks.v12'
 export const CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000 // 12h
 
 /**
@@ -93,6 +103,46 @@ const QUERY = `{
   }
 }`
 
+/**
+ * Stims are fetched on their own rather than folded into QUERY above.
+ *
+ * `Query.items` is declared `[Item]!` — non-null — so graphql-js can't null the
+ * field on a resolver error; the error propagates to the root and takes `data`
+ * with it. Quests, hideout, barters, crafts and maps must not be able to die for
+ * an optional dataset.
+ *
+ * `properties` resolves to a different union member for the one injector that
+ * isn't a stim (Morphine), which comes through this fragment as {} — filtered out
+ * when flattening. Field names verified against the-hideout/tarkov-api's
+ * schema-static.mjs: note GraphQL exposes `skillName`, where the JSON API uses a
+ * bare `skill`.
+ */
+const STIM_QUERY = `{
+  stims: items(lang: en, gameMode: pve, type: injectors) {
+    id
+    name
+    shortName
+    properties {
+      ... on ItemPropertiesStim {
+        useTime
+        cures
+        stimEffects { type chance delay duration value percent skillName }
+      }
+    }
+  }
+}`
+
+interface GqlStimItem {
+  id: string
+  name: string | null
+  shortName: string | null
+  properties: {
+    useTime?: number | null
+    cures?: (string | null)[] | null
+    stimEffects?: (RawStimEffect | null)[] | null
+  } | null
+}
+
 export interface TaskCache {
   fetchedAt: number
   tasks: RawTask[]
@@ -101,6 +151,7 @@ export interface TaskCache {
   barters: RawBarter[]
   crafts: RawCraft[]
   maps: RawMap[]
+  stims: RawStim[]
   /** Which upstream served this data — absent on caches written before the fallback existed. */
   source?: DataSource
 }
@@ -115,6 +166,9 @@ export function readCache(): TaskCache | null {
     if (!Array.isArray(parsed.stations) || !Array.isArray(parsed.ammo)) return null
     if (!Array.isArray(parsed.barters) || !Array.isArray(parsed.crafts)) return null
     if (!Array.isArray(parsed.maps)) return null
+    // `stims` is deliberately NOT checked: this guard is for rejecting a partly
+    // written fetch, not an older schema (that's what CACHE_KEY is for), and an
+    // optional dataset must never be able to invalidate the essential ones.
     return parsed
   } catch {
     return null
@@ -129,7 +183,7 @@ function writeCache(cache: TaskCache) {
   }
 }
 
-type TaskData = Omit<TaskCache, 'fetchedAt' | 'source'>
+type TaskData = Omit<TaskCache, 'fetchedAt' | 'source' | 'stims'>
 
 async function fetchTasksGraphql(): Promise<TaskData> {
   const res = await fetch(API_URL, {
@@ -158,6 +212,33 @@ async function fetchTasksGraphql(): Promise<TaskData> {
   return { tasks, stations, ammo, barters, crafts, maps }
 }
 
+async function fetchStimsGraphql(): Promise<RawStim[]> {
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: STIM_QUERY }),
+    signal: AbortSignal.timeout(GRAPHQL_TIMEOUT_MS),
+  })
+  if (!res.ok) throw new Error(`tarkov.dev API returned ${res.status}`)
+  const json = await res.json()
+  const rows = (json?.data?.stims ?? []) as (GqlStimItem | null)[]
+  return rows.flatMap((i) => {
+    const p = i?.properties
+    // no stimEffects = an injector that isn't a stim, or the fragment didn't resolve
+    if (!i || !p || !Array.isArray(p.stimEffects)) return []
+    const stimEffects = p.stimEffects.filter((e): e is RawStimEffect => e != null)
+    if (stimEffects.length === 0) return []
+    return [
+      {
+        item: { id: i.id, name: i.name ?? '', shortName: i.shortName ?? '' },
+        useTime: typeof p.useTime === 'number' ? p.useTime : null,
+        cures: (p.cures ?? []).filter((c): c is string => typeof c === 'string'),
+        stimEffects,
+      },
+    ]
+  })
+}
+
 /**
  * Fold JSON-sourced data onto the best data we already have.
  *
@@ -181,6 +262,9 @@ function mergeWithBase(json: JsonTaskData): TaskCache {
     barters: json.barters.length > 0 ? json.barters : base.barters,
     crafts: json.crafts.length > 0 ? json.crafts : base.crafts,
     maps: json.maps.length > 0 ? json.maps : base.maps,
+    // stims have no JSON endpoint either; the trailing [] matters because
+    // SNAPSHOT predates the field, so base.stims can be undefined
+    stims: json.stims ?? base.stims ?? [],
   }
 }
 
@@ -188,7 +272,19 @@ export async function fetchTasks(): Promise<TaskCache> {
   let gqlError: unknown
   if (!forceJson()) {
     try {
-      const cache: TaskCache = { fetchedAt: Date.now(), source: 'graphql', ...(await fetchTasksGraphql()) }
+      const [core, stims] = await Promise.all([
+        fetchTasksGraphql(),
+        // optional dataset: a stim failure must never fail the whole load
+        fetchStimsGraphql().catch(() => null),
+      ])
+      if (stims && stims.length === 0) console.warn('tarkov.dev returned no stims')
+      const cache: TaskCache = {
+        fetchedAt: Date.now(),
+        source: 'graphql',
+        ...core,
+        // keep whatever we had rather than blanking the view on an empty result
+        stims: stims?.length ? stims : (readCache()?.stims ?? SNAPSHOT.stims ?? []),
+      }
       writeCache(cache)
       return cache
     } catch (e) {

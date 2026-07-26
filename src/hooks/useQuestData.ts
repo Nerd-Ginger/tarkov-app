@@ -9,6 +9,7 @@ import {
   normalizeStations,
   normalizeTasks,
 } from '../data/normalize'
+import { normalizeStims } from '../data/stims'
 
 export type LoadStatus = 'loading' | 'ready' | 'error'
 
@@ -51,6 +52,7 @@ export function useQuestData() {
   const barters = useMemo(() => (cache ? normalizeBarters(cache.barters ?? []) : []), [cache])
   const crafts = useMemo(() => (cache ? normalizeCrafts(cache.crafts ?? []) : []), [cache])
   const keys = useMemo(() => (cache ? normalizeKeys(cache.maps ?? []) : []), [cache])
+  const stims = useMemo(() => (cache ? normalizeStims(cache.stims ?? []) : []), [cache])
 
   return {
     quests,
@@ -59,6 +61,7 @@ export function useQuestData() {
     barters,
     crafts,
     keys,
+    stims,
     status,
     offline,
     fetchedAt: cache?.fetchedAt ?? null,
