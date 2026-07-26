@@ -5,6 +5,9 @@ import { FLEA, buyOption, perSlot, sellOption } from '../data/tradeAccess'
 import type { BuyOption } from '../data/tradeAccess'
 import { ResetBanner } from './ResetBanner'
 import { BackupApiTag } from './BackupApiTag'
+import type { FavoriteProps } from '../hooks/useFavorites'
+import { favoritesFirst } from '../data/favorites'
+import { FavoriteStar, FavoritesToggle } from './FavoriteStar'
 
 const ROW_CAP = 400
 const FILTER_KEY = 'tarkov.fireSaleFilter.v1'
@@ -13,7 +16,7 @@ type SortField = 'name' | 'buy' | 'flea' | 'change' | 'sell' | 'margin' | 'perSl
 type SortDir = 'asc' | 'desc'
 type FleaMode = 'all' | 'banned' | 'traderOnly'
 
-interface Props {
+interface Props extends FavoriteProps {
   rows: PriceRow[]
   profile: Profile
   /** Traders not unlocked yet — their offers don't count on either side. */
@@ -102,6 +105,10 @@ export function FireSaleView({
   offline,
   onRefresh,
   onItemClick,
+  favorites,
+  pinned,
+  onToggleFavorite,
+  onTogglePinned,
 }: Props) {
   const saved = useMemo(readFilters, [])
   const [search, setSearch] = useState('')
@@ -191,7 +198,10 @@ export function FireSaleView({
       )
     }
     const m = sortDir === 'asc' ? 1 : -1
+    const favFirst = favoritesFirst<Decorated>((d) => d.p.id, favorites, pinned)
     const sorted = [...list].sort((a, b) => {
+      const fav = favFirst(a, b)
+      if (fav !== 0) return fav
       switch (sortField) {
         case 'name':
           return m * a.p.name.localeCompare(b.p.name)
@@ -223,7 +233,7 @@ export function FireSaleView({
       }
     })
     return { visible: sorted.slice(0, ROW_CAP), total: sorted.length }
-  }, [decorated, search, traders, canBuyOnly, fleaMode, minPrice, sortField, sortDir])
+  }, [decorated, search, traders, canBuyOnly, fleaMode, minPrice, sortField, sortDir, favorites, pinned])
 
   const arrow = (f: SortField) => (sortField === f ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '')
 
@@ -304,6 +314,7 @@ export function FireSaleView({
               </option>
             ))}
           </select>
+          <FavoritesToggle pinned={pinned} onToggle={onTogglePinned} />
           <label
             className="check-label arena-toggle"
             title="Only items a trader will sell you at your current loyalty (set in Profile). The flea market isn't counted."
@@ -379,6 +390,7 @@ export function FireSaleView({
               return (
                 <tr key={p.id}>
                   <td className={p.noFlea ? 'no-flea' : ''}>
+                    <FavoriteStar id={p.id} favorites={favorites} onToggle={onToggleFavorite} />
                     <button
                       className="quest-link"
                       onClick={() => onItemClick({ id: p.id, name: p.name, shortName: p.shortName })}

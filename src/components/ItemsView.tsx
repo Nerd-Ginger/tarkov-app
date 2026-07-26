@@ -3,6 +3,9 @@ import type { ItemRef, PriceRow, Quest, StationLevel } from '../types'
 import type { Inventory } from '../hooks/useInventory'
 import { aggregateNeeds } from '../data/items'
 import type { ItemNeed } from '../data/items'
+import type { FavoriteProps } from '../hooks/useFavorites'
+import { favoritesFirst } from '../data/favorites'
+import { FavoriteStar, FavoritesToggle } from './FavoriteStar'
 
 type Source = 'all' | 'quests' | 'hideout'
 type SortField = 'name' | 'needed' | 'have' | 'short' | 'flea'
@@ -16,7 +19,7 @@ function neededFor(need: ItemNeed, source: Source): number {
   return need.total
 }
 
-interface Props {
+interface Props extends FavoriteProps {
   quests: Quest[]
   done: Set<string>
   stations: StationLevel[]
@@ -28,7 +31,7 @@ interface Props {
   onItemClick: (item: ItemRef) => void
 }
 
-export function ItemsView({ quests, done, stations, built, inventory, prices, onSetCount, onQuestClick, onItemClick }: Props) {
+export function ItemsView({ quests, done, stations, built, inventory, prices, onSetCount, onQuestClick, onItemClick, favorites, pinned, onToggleFavorite, onTogglePinned }: Props) {
   const [source, setSource] = useState<Source>('all')
   const [search, setSearch] = useState('')
   const [hideCovered, setHideCovered] = useState(false)
@@ -66,13 +69,16 @@ export function ItemsView({ quests, done, stations, built, inventory, prices, on
         case 'flea': return prices.get(n.item.id)?.flea ?? -1
       }
     }
+    const favFirst = favoritesFirst<(typeof list)[number]>((x) => x.item.id, favorites, pinned)
     return [...list].sort((a, b) => {
+      const fav = favFirst(a, b)
+      if (fav !== 0) return fav
       const va = val(a)
       const vb = val(b)
       const cmp = typeof va === 'string' ? va.localeCompare(vb as string) : (va as number) - (vb as number)
       return m * cmp || a.item.name.localeCompare(b.item.name)
     })
-  }, [needs, source, search, hideCovered, sortField, sortDir, inventory, prices])
+  }, [needs, source, search, hideCovered, sortField, sortDir, inventory, prices, favorites, pinned])
 
   const handleSort = (field: SortField) => {
     if (sortField === field) setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
@@ -109,6 +115,7 @@ export function ItemsView({ quests, done, stations, built, inventory, prices, on
             <input type="checkbox" checked={hideCovered} onChange={(e) => setHideCovered(e.target.checked)} />
             Hide covered
           </label>
+          <FavoritesToggle pinned={pinned} onToggle={onTogglePinned} />
           <label className="check-label" title="Only items needed for Kappa-required quests (no hideout)">
             <input type="checkbox" checked={kappaOnly} onChange={(e) => setKappaOnly(e.target.checked)} />
             Kappa only
@@ -157,6 +164,7 @@ export function ItemsView({ quests, done, stations, built, inventory, prices, on
                 return (
                   <tr key={n.item.id} className={short === 0 ? 'covered' : ''}>
                     <td className="item-name">
+                      <FavoriteStar id={n.item.id} favorites={favorites} onToggle={onToggleFavorite} />
                       <button className="quest-link" onClick={() => onItemClick(n.item)} title="Item details">
                         {n.item.name}
                       </button>

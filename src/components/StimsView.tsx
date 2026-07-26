@@ -2,11 +2,14 @@ import { useMemo, useState } from 'react'
 import type { Stim, StimEffect, StimPairing, StimRole } from '../types'
 import { ROLE_ORDER, buildStimPairings, isPercentType } from '../data/stims'
 import { useExpandedGroups } from '../hooks/useExpandedGroups'
+import type { FavoriteProps } from '../hooks/useFavorites'
+import { favoritesFirst } from '../data/favorites'
+import { FavoriteStar, FavoritesToggle } from './FavoriteStar'
 
 type SortField = 'name' | 'role' | 'buffs' | 'debuffs' | 'duration' | 'useTime' | 'conflicts'
 type SortDir = 'asc' | 'desc'
 
-interface Props {
+interface Props extends FavoriteProps {
   stims: Stim[]
 }
 
@@ -48,7 +51,7 @@ function signClass(sign: StimEffect['sign']): string {
   return sign === 'buff' ? 'delta-up' : sign === 'debuff' ? 'delta-down' : ''
 }
 
-export function StimsView({ stims }: Props) {
+export function StimsView({ stims, favorites, pinned, onToggleFavorite, onTogglePinned }: Props) {
   const [roles, setRoles] = useState<Set<StimRole>>(new Set())
   const [search, setSearch] = useState('')
   const [sortField, setSortField] = useState<SortField | null>(null)
@@ -101,7 +104,10 @@ export function StimsView({ stims }: Props) {
       )
     }
     const m = sortDir === 'asc' ? 1 : -1
+    const favFirst = favoritesFirst<Stim>((x) => x.id, favorites, pinned)
     return [...list].sort((a, b) => {
+      const fav = favFirst(a, b)
+      if (fav !== 0) return fav
       if (!sortField) return ROLE_ORDER[a.role] - ROLE_ORDER[b.role] || a.name.localeCompare(b.name)
       if (sortField === 'name') return m * a.name.localeCompare(b.name)
       if (sortField === 'role') {
@@ -114,7 +120,7 @@ export function StimsView({ stims }: Props) {
     })
     // cancelCount reads `pairings`, which is memoized on `stims`
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stims, roles, search, sortField, sortDir, pairings])
+  }, [stims, roles, search, sortField, sortDir, pairings, favorites, pinned])
 
   const arrow = (f: SortField) => (sortField === f ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '')
   // searching reveals matches without needing to expand them by hand
@@ -148,6 +154,7 @@ export function StimsView({ stims }: Props) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          <FavoritesToggle pinned={pinned} onToggle={onTogglePinned} />
           <button className="clear-btn" onClick={() => expandAll(rows.map((s) => s.id))}>
             Expand all
           </button>
@@ -199,6 +206,8 @@ export function StimsView({ stims }: Props) {
                 key={s.id}
                 stim={s}
                 pairings={pairings.get(s.id) ?? []}
+                favorites={favorites}
+                onToggleFavorite={onToggleFavorite}
                 open={isOpen(s.id)}
                 onToggle={() => toggle(s.id)}
               />
@@ -216,11 +225,15 @@ function StimRows({
   pairings,
   open,
   onToggle,
+  favorites,
+  onToggleFavorite,
 }: {
   stim: Stim
   pairings: StimPairing[]
   open: boolean
   onToggle: () => void
+  favorites: Set<string>
+  onToggleFavorite: (id: string) => void
 }) {
   const cancels = pairings.filter((p) => p.kind === 'cancels')
   const complements = pairings.filter((p) => p.kind === 'complements').slice(0, 3)
@@ -235,6 +248,7 @@ function StimRows({
     <>
       <tr className="stim-row" onClick={onToggle}>
         <td className="ammo-name">
+          <FavoriteStar id={stim.id} favorites={favorites} onToggle={onToggleFavorite} />
           <span className={`collapse-arrow ${open ? 'open' : ''}`}>&#9654;</span>
           {stim.name}
           {stim.random && (

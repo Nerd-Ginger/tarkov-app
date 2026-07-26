@@ -39,6 +39,7 @@ import { useInventory } from './hooks/useInventory'
 import { useIntel } from './hooks/useIntel'
 import { usePrices } from './hooks/usePrices'
 import { useProfile } from './hooks/useProfile'
+import { useFavorites } from './hooks/useFavorites'
 import { buildItemUsage } from './data/itemUsage'
 import { useQuestData } from './hooks/useQuestData'
 import { useQuestProgress } from './hooks/useQuestProgress'
@@ -117,6 +118,9 @@ export default function App() {
   const { progress, setObjective, replaceProgress } = useQuestProgress()
   const { active, toggleActive, clearActive, replaceActive } = useActive()
   const { profile, setPmcLevel, setTraderLevel, setTraderUnlocked, replaceProfile } = useProfile()
+  const { favorites, pinned, toggleFavorite, togglePinned, replaceFavorites } = useFavorites()
+  // one bundle, passed to every list view
+  const favProps = { favorites, pinned, onToggleFavorite: toggleFavorite, onTogglePinned: togglePinned }
   const {
     rows: priceRows,
     byId: pricesById,
@@ -265,9 +269,10 @@ export default function App() {
     replaceInventory({})
     replaceBuilt([])
     replaceProfile({ pmcLevel: 1, traders: {}, unlockedTraders: {} })
+    replaceFavorites([])
   }
 
-  const saveProgress = () => exportProgress(done, inventory, built, progress, active, profile)
+  const saveProgress = () => exportProgress(done, inventory, built, progress, active, profile, favorites)
   const loadProgress = () =>
     importProgress((data) => {
       replaceDone(data.done)
@@ -276,6 +281,7 @@ export default function App() {
       replaceProgress(data.questProgress)
       replaceActive(data.active)
       replaceProfile(data.profile)
+      replaceFavorites(data.favorites)
     })
 
   // Traders that actually run barters — the set the Profile lets you level.
@@ -683,6 +689,7 @@ export default function App() {
               stash — completing a quest or build consumes its items automatically.
             </p>
             <ItemsView
+              {...favProps}
               quests={visibleQuests}
               done={done}
               stations={stations}
@@ -709,6 +716,7 @@ export default function App() {
               market, so you'll have to find them in raid.
             </p>
             <BartersView
+              {...favProps}
               barters={barters}
               profile={profile}
               done={done}
@@ -746,7 +754,7 @@ export default function App() {
               <strong className="warn-text">FIR</strong> = the craft needs flea-banned items — find them in raid.
               Flip <strong>Hideout tracking</strong> to hide recipes your tracked hideout can't make yet.
             </p>
-            <CraftsView crafts={crafts} built={built} onOpen={openCraft} />
+            <CraftsView {...favProps} crafts={crafts} built={built} onOpen={openCraft} />
           </section>
         )}
 
@@ -761,6 +769,7 @@ export default function App() {
               <strong className="warn-text">✱</strong> = flea-banned, trader-only.
             </p>
             <FireSaleView
+              {...favProps}
               rows={priceRows}
               profile={profile}
               locked={locked}
@@ -784,7 +793,7 @@ export default function App() {
               what's behind the door. <strong>🗺 map ↗</strong> opens the interactive map with every key location
               plotted; <strong>where + loot ↗</strong> is the wiki page with the exact spot and room contents.
             </p>
-            <KeysView keys={keys} prices={pricesById} />
+            <KeysView {...favProps} keys={keys} prices={pricesById} />
           </section>
         )}
 
@@ -815,7 +824,7 @@ export default function App() {
               don't bother) — estimated from pen power, so treat borderline cells as approximate. Click columns
               to sort, filter by caliber.
             </p>
-            <AmmoView ammo={ammo} />
+            <AmmoView {...favProps} ammo={ammo} />
           </section>
         )}
 
@@ -835,7 +844,7 @@ export default function App() {
               example of the limits: its negative body temperature is the <em>point</em> in game (thermal
               masking), but sign-based classification can only read it as a downside.
             </p>
-            <StimsView stims={stims} />
+            <StimsView {...favProps} stims={stims} />
           </section>
         )}
 

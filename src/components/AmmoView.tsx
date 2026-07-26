@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react'
 import type { Ammo } from '../types'
 import { useExpandedGroups } from '../hooks/useExpandedGroups'
+import type { FavoriteProps } from '../hooks/useFavorites'
+import { groupIsOpen, withFavoritesGroup } from '../data/favorites'
+import { FavoriteStar, FavoritesToggle } from './FavoriteStar'
 
 type SortField = 'name' | 'damage' | 'pen' | 'armorDamage' | 'fragChance' | 'velocity'
 type SortDir = 'asc' | 'desc'
 
-interface Props {
+interface Props extends FavoriteProps {
   ammo: Ammo[]
 }
 
@@ -46,7 +49,7 @@ function armorRating(pen: number, armorClass: number): number {
   return 1
 }
 
-export function AmmoView({ ammo }: Props) {
+export function AmmoView({ ammo, favorites, pinned, onToggleFavorite, onTogglePinned }: Props) {
   const [calibers, setCalibers] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
   const [sortField, setSortField] = useState<SortField | null>(null)
@@ -102,12 +105,13 @@ export function AmmoView({ ammo }: Props) {
         return m * (a[sortField] - b[sortField]) || a.name.localeCompare(b.name)
       })
     }
-    return [...byCaliber.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-  }, [ammo, calibers, search, sortField, sortDir])
+    const entries = [...byCaliber.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+    return withFavoritesGroup(entries, (a) => a.id, favorites, pinned)
+  }, [ammo, calibers, search, sortField, sortDir, favorites, pinned])
 
   const arrow = (f: SortField) => (sortField === f ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '')
   // default collapsed; searching reveals matches even inside collapsed groups
-  const isOpen = (c: string) => search !== '' || expanded.has(c)
+  const isOpen = (c: string) => groupIsOpen(c, expanded, search)
 
   return (
     <div className="ammo-view">
@@ -129,6 +133,7 @@ export function AmmoView({ ammo }: Props) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          <FavoritesToggle pinned={pinned} onToggle={onTogglePinned} />
           <button className="clear-btn" onClick={() => expandAll(allCalibers)}>Expand all</button>
           <button className="clear-btn" onClick={collapseAll}>Collapse all</button>
           {(calibers.size > 0 || search) && (
@@ -180,6 +185,8 @@ export function AmmoView({ ammo }: Props) {
                 rows={rows}
                 open={isOpen(caliber)}
                 onToggle={() => toggleGroup(caliber)}
+                favorites={favorites}
+                onToggleFavorite={onToggleFavorite}
               />
             ))}
           </tbody>
@@ -190,11 +197,13 @@ export function AmmoView({ ammo }: Props) {
   )
 }
 
-function FragmentRows({ caliber, rows, open, onToggle }: {
+function FragmentRows({ caliber, rows, open, onToggle, favorites, onToggleFavorite }: {
   caliber: string
   rows: Ammo[]
   open: boolean
   onToggle: () => void
+  favorites: Set<string>
+  onToggleFavorite: (id: string) => void
 }) {
   return (
     <>
@@ -209,6 +218,7 @@ function FragmentRows({ caliber, rows, open, onToggle }: {
         rows.map((a) => (
           <tr key={a.id}>
             <td className="ammo-name">
+              <FavoriteStar id={a.id} favorites={favorites} onToggle={onToggleFavorite} />
               {a.name}
               {a.tracer && <span className="tracer-tag" title="Tracer round">T</span>}
             </td>

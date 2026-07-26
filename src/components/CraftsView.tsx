@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Craft } from '../types'
 import { useExpandedGroups } from '../hooks/useExpandedGroups'
+import type { FavoriteProps } from '../hooks/useFavorites'
+import { groupIsOpen, withFavoritesGroup } from '../data/favorites'
+import { FavoriteStar, FavoritesToggle } from './FavoriteStar'
 import { FirBadge, TradeList } from './TradeParts'
 
 const FILTER_KEY = 'tarkov.craftFilter.v1'
 
-interface Props {
+interface Props extends FavoriteProps {
   crafts: Craft[]
   /** Built hideout levels, keys `${stationId}:${level}` (from useHideout). */
   built: Set<string>
@@ -28,7 +31,15 @@ function matches(c: Craft, s: string): boolean {
   )
 }
 
-export function CraftsView({ crafts, built, onOpen }: Props) {
+export function CraftsView({
+  crafts,
+  built,
+  onOpen,
+  favorites,
+  pinned,
+  onToggleFavorite,
+  onTogglePinned,
+}: Props) {
   const [search, setSearch] = useState('')
   const [firOnly, setFirOnly] = useState(false)
   const [hideoutTracking, setHideoutTracking] = useState(() => localStorage.getItem(FILTER_KEY) === '1')
@@ -75,10 +86,12 @@ export function CraftsView({ crafts, built, onOpen }: Props) {
       if (!g) byStation.set(c.station, (g = []))
       g.push(c)
     }
-    return [...byStation.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-  }, [crafts, search, firOnly, hideoutTracking, maxBuilt])
+    const entries = [...byStation.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+    return withFavoritesGroup(entries, (c) => c.id, favorites, pinned)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [crafts, search, firOnly, hideoutTracking, maxBuilt, favorites, pinned])
 
-  const isOpen = (s: string) => search !== '' || expanded.has(s)
+  const isOpen = (s: string) => groupIsOpen(s, expanded, search)
 
   return (
     <div className="trade-view">
@@ -105,6 +118,7 @@ export function CraftsView({ crafts, built, onOpen }: Props) {
             />
             Hideout tracking
           </label>
+          <FavoritesToggle pinned={pinned} onToggle={onTogglePinned} />
           <button className="clear-btn" onClick={() => expandAll(allStations)}>Expand all</button>
           <button className="clear-btn" onClick={collapseAll}>Collapse all</button>
           <span className="flow-hint">✱ = flea-banned item, find in raid</span>
@@ -132,6 +146,8 @@ export function CraftsView({ crafts, built, onOpen }: Props) {
                 onToggle={() => toggleGroup(station)}
                 tracking={hideoutTracking}
                 onOpen={onOpen}
+                favorites={favorites}
+                onToggleFavorite={onToggleFavorite}
               />
             ))}
           </tbody>
@@ -148,13 +164,15 @@ export function CraftsView({ crafts, built, onOpen }: Props) {
   )
 }
 
-function StationRows({ station, rows, open, onToggle, tracking, onOpen }: {
+function StationRows({ station, rows, open, onToggle, tracking, onOpen, favorites, onToggleFavorite }: {
   station: string
   rows: Craft[]
   open: boolean
   onToggle: () => void
   tracking: boolean
   onOpen: (craft: Craft) => void
+  favorites: Set<string>
+  onToggleFavorite: (id: string) => void
 }) {
   return (
     <>
@@ -172,6 +190,7 @@ function StationRows({ station, rows, open, onToggle, tracking, onOpen }: {
         rows.map((c) => (
           <tr key={c.id} className="trade-row" onClick={() => onOpen(c)} title="View unlock requirements">
             <td className="trade-reward">
+              <FavoriteStar id={c.id} favorites={favorites} onToggle={onToggleFavorite} />
               <TradeList items={c.reward} />
             </td>
             <td>

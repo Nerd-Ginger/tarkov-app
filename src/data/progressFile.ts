@@ -11,9 +11,10 @@ export interface ProgressData {
   questProgress: QuestProgress
   active: string[]
   profile: Profile
+  favorites: string[]
 }
 
-/** Download the full progress state as tarkov-progress.json (version 5). */
+/** Download the full progress state as tarkov-progress.json (version 6). */
 export function exportProgress(
   done: Set<string>,
   inventory: Inventory,
@@ -21,16 +22,18 @@ export function exportProgress(
   questProgress: QuestProgress,
   active: Set<string>,
   profile: Profile,
+  favorites: Set<string>,
 ) {
   const data = JSON.stringify(
     {
-      version: 5,
+      version: 6,
       done: [...done],
       inventory,
       hideout: [...hideout],
       questProgress,
       active: [...active],
       profile,
+      favorites: [...favorites],
     },
     null,
     2,
@@ -90,7 +93,10 @@ export function importProgress(onLoad: (data: ProgressData) => void) {
                     : {},
               }
             : DEFAULT_PROFILE
-        onLoad({ done, inventory, hideout, questProgress, active, profile })
+        // absent in files saved before favorites existed — empty is the safe default
+        const favRaw: unknown[] = Array.isArray(parsed?.favorites) ? parsed.favorites : []
+        const favorites = favRaw.filter((id): id is string => typeof id === 'string')
+        onLoad({ done, inventory, hideout, questProgress, active, profile, favorites })
       } catch {
         alert('Could not read that file — expected a tarkov-progress.json save.')
       }

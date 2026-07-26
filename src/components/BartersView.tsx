@@ -5,10 +5,13 @@ import { traderLoyalty } from '../hooks/useProfile'
 import { useExpandedGroups } from '../hooks/useExpandedGroups'
 import { FirBadge, TradeList } from './TradeParts'
 import { ResetBanner } from './ResetBanner'
+import type { FavoriteProps } from '../hooks/useFavorites'
+import { groupIsOpen, withFavoritesGroup } from '../data/favorites'
+import { FavoriteStar, FavoritesToggle } from './FavoriteStar'
 
 const FILTER_KEY = 'tarkov.barterFilter.v1'
 
-interface Props {
+interface Props extends FavoriteProps {
   barters: Barter[]
   profile: Profile
   done: Set<string>
@@ -24,7 +27,17 @@ function matches(b: Barter, s: string): boolean {
   )
 }
 
-export function BartersView({ barters, profile, done, traderResets, onOpen }: Props) {
+export function BartersView({
+  barters,
+  profile,
+  done,
+  traderResets,
+  onOpen,
+  favorites,
+  pinned,
+  onToggleFavorite,
+  onTogglePinned,
+}: Props) {
   const [search, setSearch] = useState('')
   const [firOnly, setFirOnly] = useState(false)
   const [canBuyOnly, setCanBuyOnly] = useState(() => localStorage.getItem(FILTER_KEY) === '1')
@@ -61,12 +74,13 @@ export function BartersView({ barters, profile, done, traderResets, onOpen }: Pr
       if (!g) byTrader.set(b.trader, (g = []))
       g.push(b)
     }
-    return [...byTrader.entries()].sort((a, b) => traderSortKey(a[0]) - traderSortKey(b[0]))
+    const entries = [...byTrader.entries()].sort((a, b) => traderSortKey(a[0]) - traderSortKey(b[0]))
+    return withFavoritesGroup(entries, (b) => b.id, favorites, pinned)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [barters, search, firOnly, canBuyOnly, profile, done])
+  }, [barters, search, firOnly, canBuyOnly, profile, done, favorites, pinned])
 
   // default collapsed; searching reveals matches even inside collapsed groups
-  const isOpen = (t: string) => search !== '' || expanded.has(t)
+  const isOpen = (t: string) => groupIsOpen(t, expanded, search)
 
   return (
     <div className="trade-view">
@@ -90,6 +104,7 @@ export function BartersView({ barters, profile, done, traderResets, onOpen }: Pr
             <input type="checkbox" checked={canBuyOnly} onChange={(e) => setCanBuyOnly(e.target.checked)} />
             Can buy
           </label>
+          <FavoritesToggle pinned={pinned} onToggle={onTogglePinned} />
           <button className="clear-btn" onClick={() => expandAll(allTraders)}>Expand all</button>
           <button className="clear-btn" onClick={collapseAll}>Collapse all</button>
           <span className="flow-hint">✱ = flea-banned item, find in raid</span>
@@ -116,6 +131,8 @@ export function BartersView({ barters, profile, done, traderResets, onOpen }: Pr
                 open={isOpen(trader)}
                 onToggle={() => toggleGroup(trader)}
                 onOpen={onOpen}
+                favorites={favorites}
+                onToggleFavorite={onToggleFavorite}
               />
             ))}
           </tbody>
@@ -132,12 +149,14 @@ export function BartersView({ barters, profile, done, traderResets, onOpen }: Pr
   )
 }
 
-function TraderRows({ trader, rows, open, onToggle, onOpen }: {
+function TraderRows({ trader, rows, open, onToggle, onOpen, favorites, onToggleFavorite }: {
   trader: string
   rows: Barter[]
   open: boolean
   onToggle: () => void
   onOpen: (barter: Barter) => void
+  favorites: Set<string>
+  onToggleFavorite: (id: string) => void
 }) {
   return (
     <>
@@ -152,6 +171,7 @@ function TraderRows({ trader, rows, open, onToggle, onOpen }: {
         rows.map((b) => (
           <tr key={b.id} className="trade-row" onClick={() => onOpen(b)} title="View unlock requirements">
             <td className="trade-reward">
+              <FavoriteStar id={b.id} favorites={favorites} onToggle={onToggleFavorite} />
               <TradeList items={b.reward} />
             </td>
             <td>

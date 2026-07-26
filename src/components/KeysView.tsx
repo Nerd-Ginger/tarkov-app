@@ -2,8 +2,11 @@ import { useMemo, useState } from 'react'
 import type { KeyLock, PriceRow } from '../types'
 import { mapSortKey } from '../data/normalize'
 import { useExpandedGroups } from '../hooks/useExpandedGroups'
+import type { FavoriteProps } from '../hooks/useFavorites'
+import { FAVORITES_GROUP, groupIsOpen } from '../data/favorites'
+import { FavoriteStar, FavoritesToggle } from './FavoriteStar'
 
-interface Props {
+interface Props extends FavoriteProps {
   keys: KeyLock[]
   prices: Map<string, PriceRow>
 }
@@ -32,7 +35,7 @@ function opensLabel(opens: Map<string, number>): string {
     .join(' · ')
 }
 
-export function KeysView({ keys, prices }: Props) {
+export function KeysView({ keys, prices, favorites, pinned, onToggleFavorite, onTogglePinned }: Props) {
   const [search, setSearch] = useState('')
   const { expanded, toggle, expandAll, collapseAll } = useExpandedGroups('keys')
 
@@ -73,10 +76,26 @@ export function KeysView({ keys, prices }: Props) {
       rows.sort((a, b) => (b.value ?? 0) - (a.value ?? 0) || a.name.localeCompare(b.name))
       entries.push({ map, slug: slugByMap[map] ?? '', rows })
     }
-    return entries.sort((a, b) => mapSortKey(a.map) - mapSortKey(b.map))
-  }, [keys, prices, search])
+    entries.sort((a, b) => mapSortKey(a.map) - mapSortKey(b.map))
+    // groups here are objects rather than [name, rows] tuples, so the shared
+    // helper doesn't fit — same idea, gathered from the already-filtered rows
+    if (pinned && favorites.size > 0) {
+      const seen = new Set<string>()
+      const starred: KeyRow[] = []
+      for (const g of entries) {
+        for (const r of g.rows) {
+          if (favorites.has(r.keyId) && !seen.has(r.keyId)) {
+            seen.add(r.keyId)
+            starred.push(r)
+          }
+        }
+      }
+      if (starred.length > 0) entries.unshift({ map: FAVORITES_GROUP, slug: '', rows: starred })
+    }
+    return entries
+  }, [keys, prices, search, favorites, pinned])
 
-  const isOpen = (map: string) => search !== '' || expanded.has(map)
+  const isOpen = (map: string) => groupIsOpen(map, expanded, search)
 
   const allMaps = groups.map((g) => g.map)
 
@@ -87,6 +106,7 @@ export function KeysView({ keys, prices }: Props) {
       <div className="filter-bar">
         <div className="filter-row controls">
           <input type="search" placeholder="Search keys…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <FavoritesToggle pinned={pinned} onToggle={onTogglePinned} />
           <button className="clear-btn" onClick={() => expandAll(allMaps)}>Expand all</button>
           <button className="clear-btn" onClick={collapseAll}>Collapse all</button>
           <span className="flow-hint">value = key's flea/trader price — a proxy for what's behind the door</span>
@@ -106,7 +126,7 @@ export function KeysView({ keys, prices }: Props) {
           </thead>
           <tbody>
             {groups.map(({ map, slug, rows }) => (
-              <MapKeys key={map} map={map} slug={slug} rows={rows} open={isOpen(map)} onToggle={() => toggle(map)} />
+              <MapKeys key={map} map={map} slug={slug} rows={rows} open={isOpen(map)} onToggle={() => toggle(map)} favorites={favorites} onToggleFavorite={onToggleFavorite} />
             ))}
           </tbody>
         </table>
@@ -116,12 +136,14 @@ export function KeysView({ keys, prices }: Props) {
   )
 }
 
-function MapKeys({ map, slug, rows, open, onToggle }: {
+function MapKeys({ map, slug, rows, open, onToggle, favorites, onToggleFavorite }: {
   map: string
   slug: string
   rows: KeyRow[]
   open: boolean
   onToggle: () => void
+  favorites: Set<string>
+  onToggleFavorite: (id: string) => void
 }) {
   return (
     <>
@@ -148,6 +170,7 @@ function MapKeys({ map, slug, rows, open, onToggle }: {
         rows.map((r) => (
           <tr key={r.keyId}>
             <td className="key-name">
+              <FavoriteStar id={r.keyId} favorites={favorites} onToggle={onToggleFavorite} />
               {r.name}
               {r.needsPower && <span className="power-tag" title="The lock needs power switched on">⚡ power</span>}
             </td>
