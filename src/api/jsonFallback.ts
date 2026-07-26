@@ -11,6 +11,7 @@ import type {
   RawTask,
   RawTradeItem,
 } from '../types'
+import type { PriceMode } from '../types'
 import type { RawIntel } from './intel'
 import type { RawPriceItem } from './prices'
 
@@ -31,7 +32,7 @@ import type { RawPriceItem } from './prices'
  * uses singular `offeredItem`/`productItem` where GraphQL returns arrays.
  */
 
-const JSON_BASE = 'https://json.tarkov.dev/pve/'
+const JSON_HOST = 'https://json.tarkov.dev/'
 const JSON_TIMEOUT_MS = 20_000
 /** items is ~1.25MB gzipped; tasks and prices both need it, so share the fetch. */
 const MEMO_MS = 5 * 60 * 1000
@@ -51,19 +52,25 @@ type Dict = Record<string, string>
 
 const memo = new Map<string, { at: number; promise: Promise<unknown> }>()
 
-function fetchJson<T>(name: string): Promise<T> {
-  const hit = memo.get(name)
+/**
+ * `mode` is part of the path AND the memo key — prices can ask for `regular`
+ * while quest data stays on `pve`, and without the key including it, switching
+ * modes would be served the other mode's cached response.
+ */
+function fetchJson<T>(name: string, mode: PriceMode = 'pve'): Promise<T> {
+  const path = `${mode}/${name}`
+  const hit = memo.get(path)
   if (hit && Date.now() - hit.at < MEMO_MS) return hit.promise as Promise<T>
   const promise = (async () => {
-    const res = await fetch(`${JSON_BASE}${name}`, { signal: AbortSignal.timeout(JSON_TIMEOUT_MS) })
-    if (!res.ok) throw new Error(`json.tarkov.dev/${name} returned ${res.status}`)
+    const res = await fetch(`${JSON_HOST}${path}`, { signal: AbortSignal.timeout(JSON_TIMEOUT_MS) })
+    if (!res.ok) throw new Error(`json.tarkov.dev/${path} returned ${res.status}`)
     const body = await res.json()
     // every endpoint wraps its payload in { data: ... }
     return (body?.data ?? body) as T
   })()
   // a failed fetch shouldn't be remembered — drop it so the next call retries
-  promise.catch(() => memo.delete(name))
-  memo.set(name, { at: Date.now(), promise })
+  promise.catch(() => memo.delete(path))
+  memo.set(path, { at: Date.now(), promise })
   return promise as Promise<T>
 }
 
@@ -185,9 +192,11 @@ function values<T>(payload: unknown, key?: string): T[] {
 
 // ---- prices ----
 
-export async function pricesFromJson(): Promise<RawPriceItem[]> {
+export async function pricesFromJson(mode: PriceMode = 'pve'): Promise<RawPriceItem[]> {
   const [itemsRaw, itemsEn, tradersEn] = await Promise.all([
-    fetchJson<unknown>('items'),
+    fetchJson<unknown>('items', mode),
+    // names and trader nicknames are identical across modes, so reuse the pve
+    // dictionaries rather than downloading a second 370KB copy
     fetchJson<Dict>('items_en'),
     fetchJson<Dict>('traders_en'),
   ])

@@ -126,6 +126,8 @@ export default function App() {
     byId: pricesById,
     fetchedAt: pricesFetchedAt,
     source: pricesSource,
+    mode: priceMode,
+    setMode: setPriceMode,
     loading: pricesLoading,
     offline: pricesOffline,
     ensureFresh: ensureFreshPrices,
@@ -776,6 +778,8 @@ export default function App() {
               traderResets={intel.traderResets}
               fetchedAt={pricesFetchedAt}
               source={pricesSource}
+              mode={priceMode}
+              onSetMode={setPriceMode}
               loading={pricesLoading}
               offline={pricesOffline}
               onRefresh={() => void refreshPrices()}

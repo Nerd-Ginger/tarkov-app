@@ -1,4 +1,4 @@
-import type { DataSource, PriceRow } from '../types'
+import type { DataSource, PriceMode, PriceRow } from '../types'
 import { forceJson, pricesFromJson } from './jsonFallback'
 import { GRAPHQL_TIMEOUT_MS, describe } from './shared'
 
@@ -8,9 +8,17 @@ export const PRICES_MAX_AGE_MS = 60 * 60 * 1000 // 1h — flea prices move fast
 
 export const ROUBLES_ID = '5449016a4bdc2d6f028b456f'
 
-// Full PvE item catalog (~5k items, ~2 MB raw). Trimmed to ~500 KB before caching.
-const PRICES_QUERY = `{
-  items(gameMode: pve) {
+/**
+ * Full item catalog for one game mode (~5k items). PvE and PvP are separate
+ * economies — about 3,600 of the 5,055 items carry a different flea price, some
+ * by several hundred percent — so the mode has to reach the query.
+ *
+ * Only one mode is cached at a time: the trimmed catalog is ~2.2MB and the whole
+ * localStorage budget is ~5MB, so holding both would blow it. Switching modes
+ * refetches.
+ */
+const pricesQuery = (mode: PriceMode) => `{
+  items(gameMode: ${mode}) {
     id
     name
     shortName
@@ -52,6 +60,15 @@ export interface PricesCache {
   prices: PriceRow[]
   /** Which upstream served this data — absent on caches written before the fallback existed. */
   source?: DataSource
+  /** Which game mode these prices are for. Absent = pve, the only mode before the toggle. */
+  mode?: PriceMode
+}
+
+/** Cached prices only count when they're for the mode being asked for. */
+export function readPricesCacheFor(mode: PriceMode): PricesCache | null {
+  const cache = readPricesCache()
+  if (!cache) return null
+  return (cache.mode ?? 'pve') === mode ? cache : null
 }
 
 export function readPricesCache(): PricesCache | null {
@@ -146,11 +163,11 @@ function cap(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s
 }
 
-async function fetchPricesGraphql(): Promise<RawPriceItem[]> {
+async function fetchPricesGraphql(mode: PriceMode): Promise<RawPriceItem[]> {
   const res = await fetch(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: PRICES_QUERY }),
+    body: JSON.stringify({ query: pricesQuery(mode) }),
     // without a deadline a hung VPS never fails, so the fallback never runs
     signal: AbortSignal.timeout(GRAPHQL_TIMEOUT_MS),
   })
@@ -161,11 +178,16 @@ async function fetchPricesGraphql(): Promise<RawPriceItem[]> {
   return items
 }
 
-export async function fetchPrices(): Promise<PricesCache> {
+export async function fetchPrices(mode: PriceMode = 'pve'): Promise<PricesCache> {
   let gqlError: unknown
   if (!forceJson()) {
     try {
-      const cache = { fetchedAt: Date.now(), prices: (await fetchPricesGraphql()).map(trim), source: 'graphql' as const }
+      const cache = {
+        fetchedAt: Date.now(),
+        prices: (await fetchPricesGraphql(mode)).map(trim),
+        source: 'graphql' as const,
+        mode,
+      }
       writePricesCache(cache)
       return cache
     } catch (e) {
@@ -173,7 +195,12 @@ export async function fetchPrices(): Promise<PricesCache> {
     }
   }
   try {
-    const cache = { fetchedAt: Date.now(), prices: (await pricesFromJson()).map(trim), source: 'json' as const }
+    const cache = {
+      fetchedAt: Date.now(),
+      prices: (await pricesFromJson(mode)).map(trim),
+      source: 'json' as const,
+      mode,
+    }
     writePricesCache(cache)
     return cache
   } catch (jsonError) {

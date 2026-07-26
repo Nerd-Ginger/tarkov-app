@@ -2173,6 +2173,11 @@ th.num-col {
   font-weight: 700;
 }
 
+/* sits inline after the PvE/PvP chips rather than pushed to the far right */
+.mode-hint {
+  margin-left: 4px;
+}
+
 /* ---- favorites ---- */
 
 .fav-star {

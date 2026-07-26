@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { DataSource, ItemRef, PriceRow, Profile, TraderReset } from '../types'
+import type { DataSource, ItemRef, PriceMode, PriceRow, Profile, TraderReset } from '../types'
 import { traderSortKey } from '../data/normalize'
 import { FLEA, buyOption, perSlot, sellOption } from '../data/tradeAccess'
 import type { BuyOption } from '../data/tradeAccess'
@@ -25,6 +25,9 @@ interface Props extends FavoriteProps {
   fetchedAt: number | null
   /** Which upstream served the prices — 'json' means GraphQL was unreachable. */
   source?: DataSource
+  /** Which economy's prices are showing. Applies app-wide, not just here. */
+  mode: PriceMode
+  onSetMode: (mode: PriceMode) => void
   loading: boolean
   offline: boolean
   onRefresh: () => void
@@ -101,6 +104,8 @@ export function FireSaleView({
   traderResets,
   fetchedAt,
   source,
+  mode,
+  onSetMode,
   loading,
   offline,
   onRefresh,
@@ -261,6 +266,27 @@ export function FireSaleView({
       <ResetBanner resets={traderResets} />
 
       <div className="filter-bar">
+        <div className="filter-row">
+          <span className="filter-label">Economy</span>
+          <div className="chip-group">
+            {([
+              { id: 'pve', label: 'PvE' },
+              { id: 'regular', label: 'PvP' },
+            ] as const).map((m) => (
+              <button
+                key={m.id}
+                className={`chip ${mode === m.id ? 'active' : ''}`}
+                onClick={() => onSetMode(m.id)}
+                title={`Show ${m.label} flea prices — applies to every view that shows prices`}
+              >
+                {m.label}
+              </button>
+            ))}
+            <span className="flow-hint mode-hint">
+              separate economies — most items trade at different prices
+            </span>
+          </div>
+        </div>
         <div className="filter-row">
           <span className="filter-label">Traders</span>
           <div className="chip-group">
