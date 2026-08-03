@@ -526,4 +526,12 @@ export interface Profile {
    * derived from completed quests instead.
    */
   unlockedTraders: Record<string, boolean>
+  /** PMC faction. 'Any' means don't gate — 12 quests are BEAR- or USEC-only. */
+  faction: QuestFaction
+  /**
+   * Trader name → standing. Only Fence and Lightkeeper gate anything, and only
+   * as an annotation. A missing key means "unset" — 0 can't stand in for that,
+   * since three Make Amends quests genuinely gate on `<= 0`.
+   */
+  reputation: Record<string, number>
 }

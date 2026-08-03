@@ -26,15 +26,14 @@ export function useGameMode() {
   const [mode, setModeState] = useState<GameMode>(read)
 
   const setMode = useCallback((next: GameMode) => {
-    setModeState((prev) => {
-      if (prev === next) return prev
-      try {
-        localStorage.setItem(KEY, next)
-      } catch {
-        // fine — mode just won't persist
-      }
-      return next
-    })
+    // persisted outside the updater: a no-op set must still write, or state and
+    // storage can drift apart and stay that way
+    try {
+      localStorage.setItem(KEY, next)
+    } catch {
+      // fine — mode just won't persist
+    }
+    setModeState((prev) => (prev === next ? prev : next))
   }, [])
 
   return { mode, setMode }

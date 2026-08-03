@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
-import type { Quest } from '../types'
+import type { Profile, Quest } from '../types'
+import { questReqLines } from '../data/requirements'
 import { ROUBLES_ID } from '../api/prices'
 import { EVENT_MAPS, PSEUDO_MAPS, isPseudoMap } from '../data/normalize'
 import { isCheckable, isTrackable } from '../data/progress'
@@ -20,6 +21,7 @@ interface Props {
   onToggleActive: (id: string) => void
   failed: Set<string>
   onToggleFailed: (id: string) => void
+  profile: Profile
 }
 
 const fmt = (n: number) => n.toLocaleString('en-US')
@@ -53,6 +55,7 @@ export function QuestModal({
   onToggleActive,
   failed,
   onToggleFailed,
+  profile,
 }: Props) {
   useEffect(() => {
     if (!quest) return
@@ -73,6 +76,14 @@ export function QuestModal({
     quest.rewardTraderUnlocks.length > 0 || quest.rewardOffers.length > 0 || quest.rewardSkills.length > 0
   const hasRewards =
     quest.xp > 0 || roubles > 0 || items.length > 0 || quest.rewardStanding.length > 0 || hasUnlocks
+
+  // Everything here annotates — none of it hides the quest. See data/requirements.
+  const reqLines = questReqLines(quest, profile)
+  const hasReqs =
+    reqLines.length > 0 ||
+    quest.faction !== 'Any' ||
+    quest.dialogueWith.length > 0 ||
+    quest.prestige
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -152,6 +163,45 @@ export function QuestModal({
             ))}
           </ul>
         </div>
+
+        {hasReqs && (
+          <div className="modal-section">
+            <span className="modal-label">Requirements</span>
+            <ul className="req-list">
+              {quest.faction !== 'Any' && (
+                <li>
+                  <span className={`req-state faction ${profile.faction === quest.faction ? 'met' : 'unmet'}`}>
+                    {quest.faction}
+                  </span>
+                  <span className="req-text">{quest.faction} PMCs only</span>
+                </li>
+              )}
+              {reqLines.map((l) => (
+                <li key={l.label}>
+                  <span className={`req-state ${l.state}`}>
+                    {l.state === 'met' ? '✓' : l.state === 'unmet' ? '✕' : '?'}
+                  </span>
+                  <span className="req-text">{l.label}</span>
+                  {l.state === 'unknown' && (
+                    <em className="req-hint"> — set this in Profile to track it</em>
+                  )}
+                </li>
+              ))}
+              {quest.dialogueWith.map((t) => (
+                <li key={`d-${t}`}>
+                  <span className="req-state info">💬</span>
+                  <span className="req-text">Talk to {t} in person to start this</span>
+                </li>
+              ))}
+              {quest.prestige && (
+                <li>
+                  <span className="req-state info">★</span>
+                  <span className="req-text">Requires a prestige level</span>
+                </li>
+              )}
+            </ul>
+          </div>
+        )}
 
         {hasRewards && (
           <div className="modal-section">

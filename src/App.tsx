@@ -28,6 +28,7 @@ import { QuestsTable } from './components/QuestsTable'
 import { questHandInItems } from './data/items'
 import { EVENT_MAPS, isPseudoMap, mapSortKey, stationLevelKey, traderSortKey } from './data/normalize'
 import { exportProgress, importProgress } from './data/progressFile'
+import { factionAllows } from './data/requirements'
 import { EMPTY_FILTERS, isBlocked, matchesAll } from './filters'
 import { GATED_TRADERS, lockedTraders, questUnlockedTraders, unlockQuestFor } from './data/traderGate'
 import type { Filters } from './filters'
@@ -121,7 +122,15 @@ export default function App() {
   const { progress, setObjective, replaceProgress } = useQuestProgress()
   const { active, toggleActive, clearActive, replaceActive } = useActive()
   const { failed, toggleFailed, clearFailed, replaceFailed } = useFailed()
-  const { profile, setPmcLevel, setTraderLevel, setTraderUnlocked, replaceProfile } = useProfile()
+  const {
+    profile,
+    setPmcLevel,
+    setTraderLevel,
+    setTraderUnlocked,
+    setFaction,
+    setReputation,
+    replaceProfile,
+  } = useProfile()
   const { favorites, pinned, toggleFavorite, togglePinned, replaceFavorites } = useFavorites()
   // one bundle, passed to every list view
   const favProps = { favorites, pinned, onToggleFavorite: toggleFavorite, onTogglePinned: togglePinned }
@@ -289,11 +298,13 @@ export default function App() {
     replaceProgress({})
     replaceInventory({})
     replaceBuilt([])
-    replaceProfile({ pmcLevel: 1, traders: {}, unlockedTraders: {} })
+    // faction survives a wipe deliberately — it's a property of the account, not the run
+    replaceProfile({ pmcLevel: 1, traders: {}, unlockedTraders: {}, faction: profile.faction, reputation: {} })
     replaceFavorites([])
   }
 
-  const saveProgress = () => exportProgress(done, inventory, built, progress, active, profile, favorites)
+  const saveProgress = () =>
+    exportProgress(done, inventory, built, progress, active, failed, profile, favorites, gameMode)
   const loadProgress = () =>
     importProgress((data) => {
       replaceDone(data.done)
@@ -301,8 +312,10 @@ export default function App() {
       replaceBuilt(data.hideout)
       replaceProgress(data.questProgress)
       replaceActive(data.active)
+      replaceFailed(data.failed)
       replaceProfile(data.profile)
       replaceFavorites(data.favorites)
+      setGameMode(data.gameMode)
     })
 
   // Traders that actually run barters — the set the Profile lets you level.
@@ -358,11 +371,15 @@ export default function App() {
 
   // The Arena questline is hidden entirely until the user opts in — you have to
   // "touch Arena" to see it. Locked traders' quests are hidden the same way, so
-  // they can't surface in Best Quests before you can take them.
+  // they can't surface in Best Quests before you can take them. Faction joins
+  // them once you pick one: six of the twelve faction quests are then
+  // permanently impossible, and three of those render as duplicate names.
   const visibleQuests = useMemo(
     () =>
-      quests.filter((q) => (filters.showArena || !q.arena) && !locked.has(q.trader)),
-    [quests, filters.showArena, locked],
+      quests.filter(
+        (q) => (filters.showArena || !q.arena) && !locked.has(q.trader) && factionAllows(q, profile),
+      ),
+    [quests, filters.showArena, locked, profile],
   )
 
   const allMaps = useMemo(() => {
@@ -708,6 +725,8 @@ export default function App() {
                   quests={filteredQuests}
                   done={done}
                   active={active}
+                  failed={failed}
+                  profile={profile}
                   onToggleDone={toggleQuest}
                   onQuestClick={setDetailQuest}
                   seriesStats={seriesStats}
@@ -778,6 +797,8 @@ export default function App() {
               onSetPmcLevel={setPmcLevel}
               onSetTraderLevel={setTraderLevel}
               onSetTraderUnlocked={setTraderUnlocked}
+              onSetFaction={setFaction}
+              onSetReputation={setReputation}
               onResetForWipe={resetForWipe}
             />
           </section>
@@ -896,6 +917,7 @@ export default function App() {
           done={done}
           failed={failed}
           onToggleFailed={failQuest}
+          profile={profile}
           onToggleDone={toggleQuest}
           onClose={() => setDetailQuest(null)}
           seriesStats={seriesStats}

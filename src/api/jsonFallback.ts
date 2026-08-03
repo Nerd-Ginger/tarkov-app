@@ -126,6 +126,16 @@ interface JsonTask {
   experience?: number
   objectives?: JsonObjective[] | null
   taskRequirements?: { task: string; status: string[] }[] | null
+  /** 'Any' | 'BEAR' | 'USEC'. */
+  factionName?: string | null
+  /** Traders are bare ids here, unlike GraphQL's nested `trader { name }`. */
+  traderRequirements?:
+    | { requirementType: string; compareMethod: string; value: number; trader: string }[]
+    | null
+  /** JSON-only — no equivalent field exists on the GraphQL Task type. */
+  otherRequirements?: { type: string; traders?: string[] | null }[] | null
+  /** A bare prestige id; presence is all we use. */
+  requiredPrestige?: string | null
   finishRewards?: {
     items?: JsonTradeItem[] | null
     traderStanding?: { trader: string; standing: number }[] | null
@@ -348,6 +358,19 @@ export async function tasksFromJson(mode: GameMode = 'pve'): Promise<JsonTaskDat
       task: { id: r.task },
       status: r.status,
     })),
+    factionName: t.factionName ?? null,
+    // trader ids resolve through traders_en, then match GraphQL's nested shape
+    traderRequirements: (t.traderRequirements ?? []).map((r) => ({
+      requirementType: r.requirementType,
+      compareMethod: r.compareMethod,
+      value: r.value,
+      trader: { name: traderName(r.trader) },
+    })),
+    otherRequirements: (t.otherRequirements ?? []).map((o) => ({
+      type: o.type,
+      traders: (o.traders ?? []).map((id) => ({ name: traderName(id) })),
+    })),
+    requiredPrestige: t.requiredPrestige ?? null,
     objectives: (t.objectives ?? []).map(
       (o): RawObjective => ({
         id: o.id,

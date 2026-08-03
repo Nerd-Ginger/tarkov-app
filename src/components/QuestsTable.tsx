@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import type { Quest } from '../types'
+import type { Profile, Quest } from '../types'
 import { EVENT_MAPS, PSEUDO_MAPS, isPseudoMap, traderSortKey } from '../data/normalize'
 import { LightkeeperMark } from './LightkeeperMark'
+import { unmetReqs } from '../data/requirements'
 
 type SortField = 'name' | 'trader' | 'level' | 'kappa'
 type SortDir = 'asc' | 'desc'
@@ -33,6 +34,41 @@ interface Props {
   onQuestClick: (quest: Quest) => void
   seriesStats: Map<string, { total: number; done: number }>
   onSeriesClick: (series: string) => void
+  failed: Set<string>
+  profile: Profile
+}
+
+/**
+ * Compact markers for requirements that never hide a row: faction, unmet trader
+ * gates, a required conversation, prestige. Deliberately glyph-only — the row is
+ * already dense, and the modal carries the full Requirements list.
+ */
+function QuestMarkers({ quest, profile }: { quest: Quest; profile: Profile }) {
+  const unmet = unmetReqs(quest, profile)
+  return (
+    <>
+      {quest.faction !== 'Any' && (
+        <span className={`quest-marker faction ${quest.faction.toLowerCase()}`} title={`${quest.faction} PMCs only`}>
+          {quest.faction}
+        </span>
+      )}
+      {unmet.length > 0 && (
+        <span className="quest-marker unmet" title={`Not met yet: ${unmet.map((l) => l.label).join(', ')}`}>
+          ✕ {unmet.length === 1 ? unmet[0].label : `${unmet.length} reqs`}
+        </span>
+      )}
+      {quest.dialogueWith.length > 0 && (
+        <span className="quest-marker info" title={`Talk to ${quest.dialogueWith.join(', ')} in person to start this`}>
+          💬
+        </span>
+      )}
+      {quest.prestige && (
+        <span className="quest-marker info" title="Requires a prestige level">
+          ★
+        </span>
+      )}
+    </>
+  )
 }
 
 function SortHeader({ label, field, active, dir, onSort, className }: {
@@ -47,7 +83,7 @@ function SortHeader({ label, field, active, dir, onSort, className }: {
   )
 }
 
-export function QuestsTable({ quests, done, active, onToggleDone, onQuestClick, seriesStats, onSeriesClick }: Props) {
+export function QuestsTable({ quests, done, active, failed, profile, onToggleDone, onQuestClick, seriesStats, onSeriesClick }: Props) {
   const [sortField, setSortField] = useState<SortField | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>('asc')
 
@@ -105,6 +141,10 @@ export function QuestsTable({ quests, done, active, onToggleDone, onQuestClick, 
                 {active.has(q.id) && (
                   <span className="active-badge" title="You're currently on this quest">▶ Active</span>
                 )}
+                {failed.has(q.id) && (
+                  <span className="failed-badge" title="You failed this quest">✕ Failed</span>
+                )}
+                <QuestMarkers quest={q} profile={profile} />
                 {q.series && seriesStats.has(q.series) && (
                   <button
                     className="series-badge"

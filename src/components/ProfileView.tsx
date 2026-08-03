@@ -1,6 +1,8 @@
-import type { Profile } from '../types'
-import { MAX_LOYALTY } from '../hooks/useProfile'
+import type { Profile, QuestFaction } from '../types'
+import { MAX_LOYALTY, REP_TRADERS } from '../hooks/useProfile'
 import { GATED_TRADERS } from '../data/traderGate'
+
+const FACTIONS: QuestFaction[] = ['Any', 'BEAR', 'USEC']
 
 interface Props {
   profile: Profile
@@ -12,6 +14,8 @@ interface Props {
   onSetPmcLevel: (level: number) => void
   onSetTraderLevel: (trader: string, level: number) => void
   onSetTraderUnlocked: (trader: string, unlocked: boolean) => void
+  onSetFaction: (faction: QuestFaction) => void
+  onSetReputation: (trader: string, value: number | null) => void
   onResetForWipe: () => void
 }
 
@@ -23,6 +27,8 @@ export function ProfileView({
   onSetPmcLevel,
   onSetTraderLevel,
   onSetTraderUnlocked,
+  onSetFaction,
+  onSetReputation,
   onResetForWipe,
 }: Props) {
   return (
@@ -40,6 +46,29 @@ export function ProfileView({
             onChange={(e) => onSetPmcLevel(Number.parseInt(e.target.value, 10) || 0)}
           />
         </label>
+        <div className="faction-row">
+          <span className="profile-trader-name">Faction</span>
+          <div className="loyalty-pills faction-pills">
+            {FACTIONS.map((f) => (
+              <button
+                key={f}
+                className={`loyalty-pill ${profile.faction === f ? 'on' : ''}`}
+                onClick={() => onSetFaction(f)}
+                title={
+                  f === 'Any'
+                    ? 'Show every quest, including the twelve that only one faction can take.'
+                    : `Hide the six quests only ${f === 'BEAR' ? 'USEC' : 'BEAR'} can take.`
+                }
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="legend profile-hint">
+          Twelve quests are faction-locked, and three of them share a name across both — picking a side
+          hides the half you can't take and clears the duplicate rows.
+        </p>
       </div>
 
       <div className="profile-section">
@@ -103,6 +132,37 @@ export function ProfileView({
                     </button>
                   ))}
                 </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="profile-section">
+        <span className="best-label">Trader standing</span>
+        <p className="legend profile-hint">
+          Only Fence and Lightkeeper gate quests on standing. Leave a field blank and those quests read{' '}
+          <em>unknown</em> rather than unmet — standing never hides anything, it just annotates.
+        </p>
+        <div className="profile-traders">
+          {REP_TRADERS.map((t) => {
+            const value = profile.reputation[t]
+            return (
+              <div key={t} className="profile-trader">
+                <span className="profile-trader-name">{t}</span>
+                <input
+                  className="rep-input"
+                  type="number"
+                  step={0.01}
+                  value={typeof value === 'number' ? value : ''}
+                  placeholder="unset"
+                  title={`Your ${t} standing, as shown on the trader screen. Blank = unknown.`}
+                  onChange={(e) => {
+                    const raw = e.target.value.trim()
+                    const n = Number.parseFloat(raw)
+                    onSetReputation(t, raw === '' || Number.isNaN(n) ? null : n)
+                  }}
+                />
               </div>
             )
           })}
