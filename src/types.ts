@@ -60,11 +60,25 @@ export interface Quest {
   /** All prerequisite quest ids (used to draw the progression flow chart). */
   requires: string[]
   /**
-   * Prerequisite quest ids that must be *completed* to unlock this quest. A
-   * subset of `requires` — excludes the handful of quests that unlock by
-   * *failing* a prior quest, which we can't represent and shouldn't hide.
+   * Prerequisite quest ids that completing satisfies. This is the chain
+   * `activateQuest` walks to mark ancestors done — NOT the availability gate.
+   * For that see `prereqs` / isBlocked, which also understands active and
+   * failed prerequisites.
    */
   blockingRequires: string[]
+  /**
+   * Every prerequisite with the prereq states that satisfy it. The API models
+   * this as a disjunction — `['complete','active']` means "done OR in progress".
+   */
+  prereqs: QuestPrereq[]
+  /** Which PMC faction can take this quest. 'Any' for all but 12 quests. */
+  faction: QuestFaction
+  /** Trader loyalty / reputation gates. Annotated, never hidden — see filters. */
+  traderReqs: QuestTraderReq[]
+  /** Traders you must speak to first. JSON-only; absent on GraphQL loads. */
+  dialogueWith: string[]
+  /** Gated behind a prestige level (PvP only today). */
+  prestige: boolean
   /** Completion XP. */
   xp: number
   /** Items handed out on completion (includes Roubles). */
@@ -77,6 +91,25 @@ export interface Quest {
   rewardTraderUnlocks: string[]
   /** Skill levels granted on completion. */
   rewardSkills: { name: string; level: number }[]
+}
+
+/** Prereq states the API recognises. A requirement lists the ones that satisfy it. */
+export type ReqStatus = 'complete' | 'active' | 'failed'
+
+export interface QuestPrereq {
+  id: string
+  /** Never empty — a missing status array normalizes to ['complete']. */
+  status: ReqStatus[]
+}
+
+export type QuestFaction = 'Any' | 'BEAR' | 'USEC'
+
+export interface QuestTraderReq {
+  trader: string
+  kind: 'level' | 'reputation'
+  /** '>=' | '>' | '<=' | '<' | '=' */
+  compare: string
+  value: number
 }
 
 export interface RawObjective {
@@ -97,6 +130,20 @@ export interface RawTaskRequirement {
   status: string[]
 }
 
+export interface RawTraderRequirement {
+  /** 'level' (trader loyalty) or 'reputation'. Other types are ignored. */
+  requirementType: string
+  compareMethod: string
+  value: number
+  trader: { name: string }
+}
+
+/** JSON-only — this field doesn't exist on the GraphQL Task type. */
+export interface RawOtherRequirement {
+  type: string
+  traders: { name: string }[]
+}
+
 export interface RawTask {
   id: string
   name: string
@@ -107,7 +154,12 @@ export interface RawTask {
   experience?: number
   trader: { name: string } | null
   map: { name: string } | null
+  factionName?: string | null
   taskRequirements?: RawTaskRequirement[]
+  traderRequirements?: RawTraderRequirement[] | null
+  otherRequirements?: RawOtherRequirement[] | null
+  /** JSON gives a bare prestige id; GraphQL would give an object. Presence is all we use. */
+  requiredPrestige?: string | { id: string } | null
   objectives: RawObjective[]
   finishRewards?: {
     items: { item: ItemRef; count: number }[]

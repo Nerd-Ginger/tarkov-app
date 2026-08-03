@@ -1,4 +1,10 @@
 import { ANY_MAP, ARENA, MAP_UNKNOWN, NO_RAID } from '../types'
+import type { QuestFaction, ReqStatus } from '../types'
+
+const REQ_STATUSES: ReqStatus[] = ['complete', 'active', 'failed']
+function isReqStatus(s: string): s is ReqStatus {
+  return (REQ_STATUSES as string[]).includes(s)
+}
 import type {
   Ammo,
   Barter,
@@ -230,6 +236,26 @@ export function normalizeTasks(tasks: RawTask[]): Quest[] {
       blockingRequires: (t.taskRequirements ?? [])
         .filter((r) => (r.status ?? ['complete']).includes('complete'))
         .map((r) => r.task.id),
+      prereqs: (t.taskRequirements ?? []).map((r) => {
+        const status = (r.status ?? []).filter(isReqStatus)
+        // a missing or unrecognised status array is the classic "must be done"
+        return { id: r.task.id, status: status.length > 0 ? status : (['complete'] as ReqStatus[]) }
+      }),
+      faction: (t.factionName === 'BEAR' || t.factionName === 'USEC'
+        ? t.factionName
+        : 'Any') as QuestFaction,
+      traderReqs: (t.traderRequirements ?? [])
+        .filter((r) => r.requirementType === 'level' || r.requirementType === 'reputation')
+        .map((r) => ({
+          trader: r.trader.name,
+          kind: r.requirementType as 'level' | 'reputation',
+          compare: r.compareMethod,
+          value: r.value,
+        })),
+      dialogueWith: (t.otherRequirements ?? []).flatMap((o) =>
+        o.type === 'dialogue' ? o.traders.map((x) => x.name) : [],
+      ),
+      prestige: t.requiredPrestige != null,
     }
   })
 

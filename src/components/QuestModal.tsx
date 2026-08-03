@@ -18,6 +18,8 @@ interface Props {
   onSetProgress: (objectiveId: string, value: number) => void
   active: Set<string>
   onToggleActive: (id: string) => void
+  failed: Set<string>
+  onToggleFailed: (id: string) => void
 }
 
 const fmt = (n: number) => n.toLocaleString('en-US')
@@ -49,6 +51,8 @@ export function QuestModal({
   onSetProgress,
   active,
   onToggleActive,
+  failed,
+  onToggleFailed,
 }: Props) {
   useEffect(() => {
     if (!quest) return
@@ -211,6 +215,15 @@ export function QuestModal({
             >
               <input type="checkbox" checked={active.has(quest.id)} onChange={() => onToggleActive(quest.id)} />
               ▶ Active
+            </label>
+          )}
+          {!isDone && (
+            <label
+              className={`check-label failed-toggle ${failed.has(quest.id) ? 'on' : ''}`}
+              title="Mark this as failed. A few quests unlock only by failing a prior one, and several accept either finishing or failing it."
+            >
+              <input type="checkbox" checked={failed.has(quest.id)} onChange={() => onToggleFailed(quest.id)} />
+              ✕ Failed
             </label>
           )}
           <a className="wiki-link" href={quest.wikiLink} target="_blank" rel="noreferrer">

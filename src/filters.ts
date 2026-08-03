@@ -1,4 +1,4 @@
-import type { ObjectiveCategory, Quest } from './types'
+import type { ObjectiveCategory, Quest, QuestPrereq } from './types'
 import type { QuestProgress } from './hooks/useQuestProgress'
 import { matchesMapNeeded } from './data/progress'
 
@@ -37,14 +37,45 @@ export const EMPTY_FILTERS: Filters = {
   search: '',
 }
 
+/** What a prerequisite is judged against. */
+export interface QuestGateCtx {
+  done: Set<string>
+  active: Set<string>
+  failed: Set<string>
+}
+
 /**
- * A quest is blocked when any prerequisite it must *complete* isn't done yet.
- * Chains resolve naturally: if A gates B gates C and A is undone, B is undone
- * too, so C stays blocked. Quests that unlock by failing a prior quest carry
- * no blocking prereqs, so they're never hidden this way.
+ * A requirement's status array is a disjunction — the gate opens when the
+ * prereq is in ANY of the listed states.
+ *
+ * `complete` satisfies an `active` gate. Finishing a quest means it *was*
+ * active, and without this rule completing a prerequisite would suddenly HIDE
+ * the quest it unlocks — a worse bug than the one this fixes.
  */
-export function isBlocked(q: Quest, done: Set<string>): boolean {
-  return q.blockingRequires.some((id) => !done.has(id))
+export function prereqMet(p: QuestPrereq, ctx: QuestGateCtx): boolean {
+  return p.status.some(
+    (s) =>
+      (s === 'complete' && ctx.done.has(p.id)) ||
+      (s === 'active' && (ctx.active.has(p.id) || ctx.done.has(p.id))) ||
+      (s === 'failed' && ctx.failed.has(p.id)),
+  )
+}
+
+/** Only satisfiable by failing the prereq — never blocking, since failure tracking is opt-in. */
+function failedOnly(p: QuestPrereq): boolean {
+  return p.status.every((s) => s === 'failed')
+}
+
+/**
+ * A quest is blocked when a prerequisite isn't in a state that satisfies it.
+ * Chains resolve naturally: if A gates B gates C and A is undone, B is undone
+ * too, so C stays blocked.
+ *
+ * Fail-only prereqs never block — a user who hasn't discovered the failed
+ * toggle must not silently lose quests.
+ */
+export function isBlocked(q: Quest, ctx: QuestGateCtx): boolean {
+  return q.prereqs.some((p) => !failedOnly(p) && !prereqMet(p, ctx))
 }
 
 /** Every filter except map selection — the maps section applies this per map row. */

@@ -1,5 +1,6 @@
 import type { Quest } from '../types'
 import { isBlocked } from '../filters'
+import type { QuestGateCtx } from '../filters'
 import { matchesMapNeeded, questProgress } from './progress'
 import type { QuestProgress } from '../hooks/useQuestProgress'
 
@@ -33,7 +34,7 @@ export interface BestQuest {
  */
 export function bestQuests(
   quests: Quest[],
-  done: Set<string>,
+  ctx: QuestGateCtx,
   progress: QuestProgress,
   maps: Set<string>,
   traders: Set<string>,
@@ -45,7 +46,8 @@ export function bestQuests(
   // prereq -> direct dependents (blocking edges only, within the visible set)
   const dependents = new Map<string, string[]>()
   for (const q of quests) {
-    for (const p of q.blockingRequires) {
+    // every edge a user can satisfy by playing forward — fail-only gates excluded
+    for (const p of q.prereqs.filter((x) => !x.status.every((s) => s === 'failed')).map((x) => x.id)) {
       if (!byId.has(p)) continue
       let list = dependents.get(p)
       if (!list) dependents.set(p, (list = []))
@@ -57,16 +59,16 @@ export function bestQuests(
   // the map/trader/level filters only limit which quests are shown as candidates.
   const candidates = quests.filter(
     (q) =>
-      !done.has(q.id) &&
-      !isBlocked(q, done) &&
+      !ctx.done.has(q.id) &&
+      !isBlocked(q, ctx) &&
       withinLevel(q, pmcLevel) &&
       matchesTrader(q, traders) &&
-      matchesMapNeeded(q, maps, progress, done),
+      matchesMapNeeded(q, maps, progress, ctx.done),
   )
 
   const scored = candidates.map((quest) => {
     const direct = dependents.get(quest.id) ?? []
-    const unlocked = direct.filter((id) => !done.has(id)).map((id) => byId.get(id)!)
+    const unlocked = direct.filter((id) => !ctx.done.has(id)).map((id) => byId.get(id)!)
     unlocked.sort(
       (a, b) => a.trader.localeCompare(b.trader) || a.minLevel - b.minLevel || a.name.localeCompare(b.name),
     )
@@ -82,7 +84,7 @@ export function bestQuests(
       if (next) stack.push(...next)
     }
     let chainTotal = 0
-    for (const id of seen) if (!done.has(id)) chainTotal++
+    for (const id of seen) if (!ctx.done.has(id)) chainTotal++
 
     return {
       quest,
@@ -117,7 +119,7 @@ export interface RewardQuest {
  */
 export function bestRewardQuests(
   quests: Quest[],
-  done: Set<string>,
+  ctx: QuestGateCtx,
   progress: QuestProgress,
   maps: Set<string>,
   traders: Set<string>,
@@ -126,11 +128,11 @@ export function bestRewardQuests(
 ): RewardQuest[] {
   const candidates = quests.filter(
     (q) =>
-      !done.has(q.id) &&
-      !isBlocked(q, done) &&
+      !ctx.done.has(q.id) &&
+      !isBlocked(q, ctx) &&
       withinLevel(q, pmcLevel) &&
       matchesTrader(q, traders) &&
-      matchesMapNeeded(q, maps, progress, done),
+      matchesMapNeeded(q, maps, progress, ctx.done),
   )
   const scored = candidates.map((quest) => ({
     quest,

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { Quest } from '../types'
 import { EVENT_MAPS, PSEUDO_MAPS, isPseudoMap, mapSortKey } from '../data/normalize'
 import { isBlocked, matchesNonMap } from '../filters'
+import type { QuestGateCtx } from '../filters'
 import type { Filters } from '../filters'
 import { mapCleared } from '../data/progress'
 import type { QuestProgress } from '../hooks/useQuestProgress'
@@ -13,12 +14,13 @@ interface Props {
   quests: Quest[]
   filters: Filters
   done: Set<string>
+  gateCtx: QuestGateCtx
   progress: QuestProgress
   active: Set<string>
   onQuestClick: (quest: Quest) => void
 }
 
-export function MapsSection({ quests, filters, done, progress, active, onQuestClick }: Props) {
+export function MapsSection({ quests, filters, done, gateCtx, progress, active, onQuestClick }: Props) {
   const [sortField, setSortField] = useState<MapSortField | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>('asc')
 
@@ -26,7 +28,7 @@ export function MapsSection({ quests, filters, done, progress, active, onQuestCl
     const byMap = new Map<string, Quest[]>()
     for (const q of quests) {
       if (!matchesNonMap(q, filters)) continue
-      if (filters.hideBlocked && isBlocked(q, done)) continue
+      if (filters.hideBlocked && isBlocked(q, gateCtx)) continue
       for (const m of q.maps) {
         if (filters.maps.size > 0 && !filters.maps.has(m)) continue
         // a map row means "what I still need this map for" — drop quests whose
@@ -57,7 +59,7 @@ export function MapsSection({ quests, filters, done, progress, active, onQuestCl
       })
     }
     return entries
-  }, [quests, filters, sortField, sortDir, done, progress])
+  }, [quests, filters, sortField, sortDir, done, gateCtx, progress])
 
   const handleSort = (field: MapSortField) => {
     if (sortField === field) {

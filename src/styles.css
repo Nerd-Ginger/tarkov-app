@@ -1642,6 +1642,22 @@ tr.done .quest-link {
   border-radius: 6px;
 }
 
+.failed-toggle {
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.failed-toggle.on,
+.failed-toggle:has(input:checked) {
+  border-color: var(--cat-kill);
+  color: var(--cat-kill);
+}
+
+.failed-toggle input {
+  accent-color: var(--cat-kill);
+}
+
 .active-toggle.on,
 .active-toggle:has(input:checked) {
   border-color: var(--cat-extract);

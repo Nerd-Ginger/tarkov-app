@@ -33,6 +33,7 @@ import { GATED_TRADERS, lockedTraders, questUnlockedTraders, unlockQuestFor } fr
 import type { Filters } from './filters'
 import type { Barter, Craft, ItemRef, Quest } from './types'
 import { useActive } from './hooks/useActive'
+import { useFailed } from './hooks/useFailed'
 import { useDone } from './hooks/useDone'
 import { useHideout } from './hooks/useHideout'
 import { useInventory } from './hooks/useInventory'
@@ -119,6 +120,7 @@ export default function App() {
   const { built, replaceBuilt } = useHideout()
   const { progress, setObjective, replaceProgress } = useQuestProgress()
   const { active, toggleActive, clearActive, replaceActive } = useActive()
+  const { failed, toggleFailed, clearFailed, replaceFailed } = useFailed()
   const { profile, setPmcLevel, setTraderLevel, setTraderUnlocked, replaceProfile } = useProfile()
   const { favorites, pinned, toggleFavorite, togglePinned, replaceFavorites } = useFavorites()
   // one bundle, passed to every list view
@@ -179,6 +181,9 @@ export default function App() {
     if (INTEL_VIEWS.has(view)) ensureFreshIntel()
   }, [view, ensureFreshPrices, ensureFreshIntel])
 
+  /** What every availability check is judged against. */
+  const gateCtx = useMemo(() => ({ done, active, failed }), [done, active, failed])
+
   const questById = useMemo(() => new Map(quests.map((q) => [q.id, q])), [quests])
   const levelByKey = useMemo(() => new Map(stations.map((l) => [l.key, l])), [stations])
 
@@ -188,11 +193,14 @@ export default function App() {
     (id: string) => {
       const q = questById.get(id)
       if (q) applyDeltas(questHandInItems(q), done.has(id) ? 1 : -1)
-      // finishing an active quest ends its active status
-      if (!done.has(id)) clearActive(id)
+      // done, active and failed are mutually exclusive states
+      if (!done.has(id)) {
+        clearActive(id)
+        clearFailed(id)
+      }
       toggle(id)
     },
-    [questById, done, applyDeltas, toggle, clearActive],
+    [questById, done, applyDeltas, toggle, clearActive, clearFailed],
   )
 
   /**
@@ -230,9 +238,19 @@ export default function App() {
           replaceDone([...done, ...newlyDone])
         }
       }
+      clearFailed(id)
       toggleActive(id)
     },
-    [active, questById, done, replaceDone, toggleActive],
+    [active, questById, done, replaceDone, toggleActive, clearFailed],
+  )
+
+  // Failed and active are mutually exclusive states for the same quest.
+  const failQuest = useCallback(
+    (id: string) => {
+      clearActive(id)
+      toggleFailed(id)
+    },
+    [clearActive, toggleFailed],
   )
 
   // Station levels are cumulative: you can't have Generator 3 without 1 & 2.
@@ -267,6 +285,7 @@ export default function App() {
     if (!ok) return
     replaceDone([])
     replaceActive([])
+    replaceFailed([])
     replaceProgress({})
     replaceInventory({})
     replaceBuilt([])
@@ -360,7 +379,7 @@ export default function App() {
   const filteredQuests = useMemo(() => {
     let list = visibleQuests.filter((q) => matchesAll(q, filters, { progress, done }))
     if (filters.hideDone) list = list.filter((q) => !done.has(q.id))
-    if (filters.hideBlocked) list = list.filter((q) => !isBlocked(q, done))
+    if (filters.hideBlocked) list = list.filter((q) => !isBlocked(q, gateCtx))
     return list
   }, [visibleQuests, filters, done, progress])
 
@@ -390,11 +409,11 @@ export default function App() {
   }, [visibleQuests, done])
 
   const best = useMemo(
-    () => bestQuests(visibleQuests, done, progress, bestMaps, bestTraders, profile.pmcLevel),
+    () => bestQuests(visibleQuests, gateCtx, progress, bestMaps, bestTraders, profile.pmcLevel),
     [visibleQuests, done, progress, bestMaps, bestTraders, profile.pmcLevel],
   )
   const bestRewards = useMemo(
-    () => bestRewardQuests(visibleQuests, done, progress, bestMaps, bestTraders, profile.pmcLevel),
+    () => bestRewardQuests(visibleQuests, gateCtx, progress, bestMaps, bestTraders, profile.pmcLevel),
     [visibleQuests, done, progress, bestMaps, bestTraders, profile.pmcLevel],
   )
 
@@ -403,7 +422,7 @@ export default function App() {
   const rollRandomQuest = useCallback(() => {
     const lvl = profile.pmcLevel
     const available = visibleQuests.filter(
-      (q) => !done.has(q.id) && !isBlocked(q, done) && (lvl <= 0 || q.minLevel <= lvl),
+      (q) => !done.has(q.id) && !isBlocked(q, gateCtx) && (lvl <= 0 || q.minLevel <= lvl),
     )
     if (available.length === 0) return
     setDetailQuest(available[Math.floor(Math.random() * available.length)])
@@ -655,6 +674,7 @@ export default function App() {
                     quests={visibleQuests}
                     filters={filters}
                     done={done}
+                    gateCtx={gateCtx}
                     progress={progress}
                     active={active}
                     onQuestClick={setDetailQuest}
@@ -874,6 +894,8 @@ export default function App() {
         <QuestModal
           quest={detailQuest}
           done={done}
+          failed={failed}
+          onToggleFailed={failQuest}
           onToggleDone={toggleQuest}
           onClose={() => setDetailQuest(null)}
           seriesStats={seriesStats}
