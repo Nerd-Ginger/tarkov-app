@@ -39,6 +39,7 @@ import { useInventory } from './hooks/useInventory'
 import { useIntel } from './hooks/useIntel'
 import { usePrices } from './hooks/usePrices'
 import { useProfile } from './hooks/useProfile'
+import { useGameMode } from './hooks/useGameMode'
 import { useFavorites } from './hooks/useFavorites'
 import { buildItemUsage } from './data/itemUsage'
 import { useQuestData } from './hooks/useQuestData'
@@ -108,10 +109,11 @@ function timeAgo(ts: number): string {
 }
 
 export default function App() {
+  const { mode: gameMode, setMode: setGameMode } = useGameMode()
   const {
     quests, stations, ammo, barters, crafts, keys, stims, status, offline, fetchedAt,
     source: questSource, refresh,
-  } = useQuestData()
+  } = useQuestData(gameMode)
   const { done, toggle, replaceDone } = useDone()
   const { inventory, setCount, applyDeltas, replaceInventory } = useInventory()
   const { built, replaceBuilt } = useHideout()
@@ -126,13 +128,11 @@ export default function App() {
     byId: pricesById,
     fetchedAt: pricesFetchedAt,
     source: pricesSource,
-    mode: priceMode,
-    setMode: setPriceMode,
     loading: pricesLoading,
     offline: pricesOffline,
     ensureFresh: ensureFreshPrices,
     refresh: refreshPrices,
-  } = usePrices()
+  } = usePrices(gameMode)
   const {
     intel,
     fetchedAt: intelFetchedAt,
@@ -534,6 +534,21 @@ export default function App() {
                 </em>
               )}
             </span>
+            <span className="chip-group mode-chips">
+              {([
+                { id: 'pve', label: 'PvE' },
+                { id: 'regular', label: 'PvP' },
+              ] as const).map((m) => (
+                <button
+                  key={m.id}
+                  className={`chip ${gameMode === m.id ? 'active' : ''}`}
+                  onClick={() => setGameMode(m.id)}
+                  title="Switches quests, prices and hideout data. Your tracked progress is kept — quests unique to the other mode simply hide until you switch back."
+                >
+                  {m.label}
+                </button>
+              ))}
+            </span>
             {fetchedAt && (
               <span className="freshness">
                 data: tarkov.dev · {timeAgo(fetchedAt)}
@@ -764,7 +779,8 @@ export default function App() {
           <section>
             <h2>Fire Sale</h2>
             <p className="legend">
-              Live PvE prices from tarkov.dev (refreshed ~hourly when online) — both sides of the market.{' '}
+              Live {gameMode === 'pve' ? 'PvE' : 'PvP'} prices from tarkov.dev (refreshed ~hourly when online) —
+              both sides of the market.{' '}
               <strong>Buy</strong> is the cheapest offer you can actually take at your trader loyalty (set it in
               Profile); 🔒 means a cheaper one sits above your level. <strong>Sell</strong> and{' '}
               <strong>₽/slot</strong> only count traders you've unlocked.{' '}
@@ -778,8 +794,8 @@ export default function App() {
               traderResets={intel.traderResets}
               fetchedAt={pricesFetchedAt}
               source={pricesSource}
-              mode={priceMode}
-              onSetMode={setPriceMode}
+              mode={gameMode}
+              onSetMode={setGameMode}
               loading={pricesLoading}
               offline={pricesOffline}
               onRefresh={() => void refreshPrices()}

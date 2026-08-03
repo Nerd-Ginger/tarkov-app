@@ -362,11 +362,17 @@ export interface Craft {
 export type DataSource = 'graphql' | 'json'
 
 /**
- * Which game mode's flea prices to show. PvE and PvP are separate economies —
- * most items trade at different prices. `regular` is the API's name for PvP.
- * Quest data stays on pve regardless; only prices follow this.
+ * Which game mode the whole app tracks — quests, prices, hideout, the lot.
+ * `regular` is the API's name for PvP.
+ *
+ * The two modes are separate economies AND separate quest sets, though 483 of
+ * ~510 quests are shared; the differences are all Arena ([PVE ZONE] vs
+ * [PVP ZONE] variants). Progress is keyed by quest id, so switching keeps it.
  */
-export type PriceMode = 'pve' | 'regular'
+export type GameMode = 'pve' | 'regular'
+
+/** @deprecated Historical alias from when only prices switched. Use GameMode. */
+export type PriceMode = GameMode
 
 /** Trimmed live price row (cached ~1h; never bundled in the snapshot). */
 export interface PriceRow {

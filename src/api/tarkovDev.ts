@@ -1,5 +1,6 @@
 import type {
   DataSource,
+  GameMode,
   RawAmmo,
   RawBarter,
   RawCraft,
@@ -15,7 +16,7 @@ import type { JsonTaskData } from './jsonFallback'
 import { GRAPHQL_TIMEOUT_MS, describe } from './shared'
 
 const API_URL = 'https://api.tarkov.dev/graphql'
-const CACHE_KEY = 'tarkov.tasks.v13'
+const CACHE_KEY = 'tarkov.tasks.v14'
 export const CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000 // 12h
 
 /**
@@ -25,18 +26,27 @@ export const CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000 // 12h
  */
 export const SNAPSHOT = snapshot as TaskCache
 
-// gameMode: pve — we play the PvE version; its quest list differs from regular (PvP).
-const QUERY = `{
-  tasks(lang: en, gameMode: pve) {
+/**
+ * `mode` is interpolated from a closed union, never user input.
+ *
+ * `requiredPrestige` is deliberately NOT selected: a wrong field name would 400
+ * the whole root query and take quests, hideout, barters, crafts and maps with
+ * it. It's read from the JSON payload instead until it can be verified against a
+ * live playground — GraphQL has been down every time we've looked.
+ */
+const QUERY = (mode: GameMode) => `{
+  tasks(lang: en, gameMode: ${mode}) {
     id
     name
     minPlayerLevel
     kappaRequired
     lightkeeperRequired
+    factionName
     wikiLink
     trader { name }
     map { name }
     taskRequirements { task { id } status }
+    traderRequirements { requirementType compareMethod value trader { name } }
     objectives {
       id
       type
@@ -56,8 +66,8 @@ const QUERY = `{
   # experience fetched separately: its resolver 500s on one task, and since the
   # field is non-nullable GraphQL nulls the WHOLE task — this way only the XP
   # number is lost for that task, not the quest itself
-  xpTable: tasks(lang: en, gameMode: pve) { id experience }
-  ammo(lang: en, gameMode: pve) {
+  xpTable: tasks(lang: en, gameMode: ${mode}) { id experience }
+  ammo(lang: en, gameMode: ${mode}) {
     item { id name shortName }
     caliber
     damage
@@ -69,7 +79,7 @@ const QUERY = `{
     recoilModifier
     tracer
   }
-  hideoutStations(lang: en, gameMode: pve) {
+  hideoutStations(lang: en, gameMode: ${mode}) {
     id
     name
     levels {
@@ -80,7 +90,7 @@ const QUERY = `{
       skillRequirements { name level }
     }
   }
-  barters(gameMode: pve) {
+  barters(gameMode: ${mode}) {
     id
     trader { name }
     level
@@ -88,7 +98,7 @@ const QUERY = `{
     requiredItems { item { id name shortName types } count }
     rewardItems { item { id name shortName } count }
   }
-  crafts(gameMode: pve) {
+  crafts(gameMode: ${mode}) {
     id
     station { id name }
     level
@@ -96,7 +106,7 @@ const QUERY = `{
     requiredItems { item { id name shortName types } count }
     rewardItems { item { id name shortName } count }
   }
-  maps(lang: en, gameMode: pve) {
+  maps(lang: en, gameMode: ${mode}) {
     name
     normalizedName
     locks { lockType needsPower key { id name shortName wikiLink } }
@@ -117,8 +127,8 @@ const QUERY = `{
  * schema-static.mjs: note GraphQL exposes `skillName`, where the JSON API uses a
  * bare `skill`.
  */
-const STIM_QUERY = `{
-  stims: items(lang: en, gameMode: pve, types: [injectors, meds, provisions]) {
+const STIM_QUERY = (mode: GameMode) => `{
+  stims: items(lang: en, gameMode: ${mode}, types: [injectors, meds, provisions]) {
     id
     name
     shortName
@@ -181,6 +191,20 @@ export interface TaskCache {
   stims: RawStim[]
   /** Which upstream served this data — absent on caches written before the fallback existed. */
   source?: DataSource
+  /** Which game mode this data is for. Absent = pve, the only mode before the toggle. */
+  mode?: GameMode
+}
+
+/**
+ * Cached tasks only count when they're for the mode being asked for.
+ *
+ * Every caller that feeds quest data MUST go through this rather than readCache,
+ * or a mode switch serves the other mode's quests.
+ */
+export function readCacheFor(mode: GameMode): TaskCache | null {
+  const cache = readCache()
+  if (!cache) return null
+  return (cache.mode ?? 'pve') === mode ? cache : null
 }
 
 export function readCache(): TaskCache | null {
@@ -212,11 +236,11 @@ function writeCache(cache: TaskCache) {
 
 type TaskData = Omit<TaskCache, 'fetchedAt' | 'source' | 'stims'>
 
-async function fetchTasksGraphql(): Promise<TaskData> {
+async function fetchTasksGraphql(mode: GameMode): Promise<TaskData> {
   const res = await fetch(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: QUERY }),
+    body: JSON.stringify({ query: QUERY(mode) }),
     // without a deadline a hung VPS never fails, so the fallback never runs
     signal: AbortSignal.timeout(GRAPHQL_TIMEOUT_MS),
   })
@@ -239,11 +263,11 @@ async function fetchTasksGraphql(): Promise<TaskData> {
   return { tasks, stations, ammo, barters, crafts, maps }
 }
 
-async function fetchStimsGraphql(): Promise<RawStim[]> {
+async function fetchStimsGraphql(mode: GameMode): Promise<RawStim[]> {
   const res = await fetch(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: STIM_QUERY }),
+    body: JSON.stringify({ query: STIM_QUERY(mode) }),
     signal: AbortSignal.timeout(GRAPHQL_TIMEOUT_MS),
   })
   if (!res.ok) throw new Error(`tarkov.dev API returned ${res.status}`)
@@ -313,39 +337,48 @@ async function fetchStimsGraphql(): Promise<RawStim[]> {
  * mid-wipe. The other datasets are swapped wholesale when non-empty: ids aren't
  * guaranteed to line up across the two sources, and duplicate stations or
  * barters would corrupt the normalizers.
+ *
+ * The union is only ever valid WITHIN one mode. SNAPSHOT is PvE, so it must
+ * never seed a `regular` merge: PvE and PvP carry mirror Arena quests
+ * ([PVE ZONE] vs [PVP ZONE]) under different ids, and merging across would show
+ * both variants of every Arena quest side by side.
  */
-function mergeWithBase(json: JsonTaskData): TaskCache {
-  const base = readCache() ?? SNAPSHOT
+function mergeWithBase(json: JsonTaskData, mode: GameMode): TaskCache {
+  const base = readCacheFor(mode) ?? (mode === 'pve' ? SNAPSHOT : null)
   const fromJson = new Set(json.tasks.map((t) => t.id))
   return {
     fetchedAt: Date.now(),
     source: 'json',
-    tasks: [...json.tasks, ...base.tasks.filter((t) => !fromJson.has(t.id))],
-    stations: json.stations.length > 0 ? json.stations : base.stations,
+    mode,
+    tasks: base ? [...json.tasks, ...base.tasks.filter((t) => !fromJson.has(t.id))] : json.tasks,
+    stations: json.stations.length > 0 ? json.stations : (base?.stations ?? []),
     // ammo has no JSON endpoint; null = couldn't derive it from item properties
-    ammo: json.ammo ?? base.ammo,
-    barters: json.barters.length > 0 ? json.barters : base.barters,
-    crafts: json.crafts.length > 0 ? json.crafts : base.crafts,
-    maps: json.maps.length > 0 ? json.maps : base.maps,
-    // stims have no JSON endpoint either; the trailing [] matters because
-    // SNAPSHOT predates the field, so base.stims can be undefined
-    stims: json.stims ?? base.stims ?? [],
+    ammo: json.ammo ?? base?.ammo ?? [],
+    barters: json.barters.length > 0 ? json.barters : (base?.barters ?? []),
+    crafts: json.crafts.length > 0 ? json.crafts : (base?.crafts ?? []),
+    maps: json.maps.length > 0 ? json.maps : (base?.maps ?? []),
+    // stims have no JSON endpoint either. Read from the un-moded cache on
+    // purpose: item properties are the same in both modes, so there's no reason
+    // to lose them on a switch. The trailing [] matters because SNAPSHOT
+    // predates the field.
+    stims: json.stims ?? readCache()?.stims ?? SNAPSHOT.stims ?? [],
   }
 }
 
-export async function fetchTasks(): Promise<TaskCache> {
+export async function fetchTasks(mode: GameMode = 'pve'): Promise<TaskCache> {
   let gqlError: unknown
   if (!forceJson()) {
     try {
       const [core, stims] = await Promise.all([
-        fetchTasksGraphql(),
+        fetchTasksGraphql(mode),
         // optional dataset: a stim failure must never fail the whole load
-        fetchStimsGraphql().catch(() => null),
+        fetchStimsGraphql(mode).catch(() => null),
       ])
       if (stims && stims.length === 0) console.warn('tarkov.dev returned no stims')
       const cache: TaskCache = {
         fetchedAt: Date.now(),
         source: 'graphql',
+        mode,
         ...core,
         // keep whatever we had rather than blanking the view on an empty result
         stims: stims?.length ? stims : (readCache()?.stims ?? SNAPSHOT.stims ?? []),
@@ -357,7 +390,7 @@ export async function fetchTasks(): Promise<TaskCache> {
     }
   }
   try {
-    const cache = mergeWithBase(await tasksFromJson())
+    const cache = mergeWithBase(await tasksFromJson(mode), mode)
     writeCache(cache)
     return cache
   } catch (jsonError) {

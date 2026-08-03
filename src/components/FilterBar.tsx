@@ -129,13 +129,16 @@ export function FilterBar({ filters, onChange, allMaps, allTraders }: Props) {
           />
           Hide blocked
         </label>
-        <label className="check-label arena-toggle" title="Off by default. Flip on to reveal the Arena questline (Ref) — these require playing Arena (PvP).">
+        <label
+          className="check-label arena-toggle"
+          title="Off by default. Flip on to reveal the Arena questline (Ref). PvE and PvP have separate Arena quests — you see the set matching your game mode."
+        >
           <input
             type="checkbox"
             checked={filters.showArena}
             onChange={(e) => onChange({ ...filters, showArena: e.target.checked })}
           />
-          Arena (PvP)
+          Arena
         </label>
         {anyActive && (
           <button

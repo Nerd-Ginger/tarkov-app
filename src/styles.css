@@ -2173,6 +2173,16 @@ th.num-col {
   font-weight: 700;
 }
 
+/* app-wide game-mode chips in the header, beside the freshness stamp */
+.mode-chips {
+  gap: 4px;
+}
+
+.mode-chips .chip {
+  padding: 2px 9px;
+  font-size: 11px;
+}
+
 /* sits inline after the PvE/PvP chips rather than pushed to the far right */
 .mode-hint {
   margin-left: 4px;

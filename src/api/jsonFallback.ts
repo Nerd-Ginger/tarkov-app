@@ -11,7 +11,7 @@ import type {
   RawTask,
   RawTradeItem,
 } from '../types'
-import type { PriceMode } from '../types'
+import type { GameMode, PriceMode } from '../types'
 import type { RawIntel } from './intel'
 import type { RawPriceItem } from './prices'
 
@@ -53,9 +53,10 @@ type Dict = Record<string, string>
 const memo = new Map<string, { at: number; promise: Promise<unknown> }>()
 
 /**
- * `mode` is part of the path AND the memo key — prices can ask for `regular`
- * while quest data stays on `pve`, and without the key including it, switching
- * modes would be served the other mode's cached response.
+ * `mode` is part of the path AND the memo key. Without it in the key, switching
+ * modes would be served the other mode's cached response. Some endpoints are
+ * mode-scoped (tasks, tasks_en, items, hideout, barters, crafts, maps) and some
+ * are not (items_en, traders_en, maps_en, hideout_en) — see the call sites.
  */
 function fetchJson<T>(name: string, mode: PriceMode = 'pve'): Promise<T> {
   const path = `${mode}/${name}`
@@ -288,19 +289,24 @@ export interface JsonTaskData {
   stims: RawStim[] | null
 }
 
-export async function tasksFromJson(): Promise<JsonTaskData> {
+export async function tasksFromJson(mode: GameMode = 'pve'): Promise<JsonTaskData> {
   const [tasksRaw, tasksEn, itemsRaw, itemsEn, hideoutRaw, hideoutEn, tradersEn, bartersRaw, craftsRaw, mapsRaw, mapsEn] =
     await Promise.all([
-      fetchJson<unknown>('tasks'),
-      fetchJson<Dict>('tasks_en'),
-      fetchJson<unknown>('items'),
+      fetchJson<unknown>('tasks', mode),
+      // tasks_en IS mode-scoped: every PvE-only Arena quest's name key is absent
+      // from regular/tasks_en. Sharing it would render those 23 as raw ids —
+      // which also breaks the [PVE ZONE] name test that classifies them as Arena.
+      fetchJson<Dict>('tasks_en', mode),
+      fetchJson<unknown>('items', mode),
+      // the remaining dictionaries are identical across modes — keep them shared
+      // rather than downloading a second copy
       fetchJson<Dict>('items_en'),
-      fetchJson<unknown>('hideout'),
+      fetchJson<unknown>('hideout', mode),
       fetchJson<Dict>('hideout_en'),
       fetchJson<Dict>('traders_en'),
-      fetchJson<unknown>('barters'),
-      fetchJson<unknown>('crafts'),
-      fetchJson<unknown>('maps'),
+      fetchJson<unknown>('barters', mode),
+      fetchJson<unknown>('crafts', mode),
+      fetchJson<unknown>('maps', mode),
       fetchJson<Dict>('maps_en'),
     ])
 
