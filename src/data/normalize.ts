@@ -333,7 +333,15 @@ const CALIBER_LABELS: Record<string, string> = {
   Caliber40mmRU: '40mm RU Grenade',
   Caliber68x51: '6.8x51 SIG',
   Caliber9x33R: '.357 Magnum',
-  Caliber50BMG: '.50 BMG',
+  // The fallback strips "Caliber" and leaves the raw id, which drops the decimal
+  // point — 5.8x42 rendered as "58x42" and .50 BMG as "127x99", so searching for
+  // a caliber the normal way found nothing.
+  Caliber58x42: '5.8x42',
+  Caliber127x33: '.50 AE',
+  Caliber127x99: '.50 BMG',
+  Caliber762x35: '.300 Blackout',
+  Caliber784x49: '.308 ME',
+  Caliber93x64: '9.3x64',
 }
 
 function caliberLabel(raw: string | null): string {
