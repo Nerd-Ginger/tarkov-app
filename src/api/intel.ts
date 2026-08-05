@@ -135,22 +135,22 @@ async function fetchIntelGraphql(): Promise<RawIntel> {
   return data
 }
 
+/** JSON first, GraphQL as the backup — see fetchTasks for why. */
 export async function fetchIntel(): Promise<IntelCache> {
-  let gqlError: unknown
-  if (!forceJson()) {
-    try {
-      const cache = { fetchedAt: Date.now(), intel: normalize(await fetchIntelGraphql()), source: 'graphql' as const }
-      writeIntelCache(cache)
-      return cache
-    } catch (e) {
-      gqlError = e
-    }
-  }
+  let jsonError: unknown
   try {
     const cache = { fetchedAt: Date.now(), intel: normalize(await intelFromJson()), source: 'json' as const }
     writeIntelCache(cache)
     return cache
-  } catch (jsonError) {
-    throw new Error(`intel unavailable — graphql: ${describe(gqlError)}; json: ${describe(jsonError)}`)
+  } catch (e) {
+    jsonError = e
+  }
+  if (forceJson()) throw new Error(`intel unavailable — json: ${describe(jsonError)}`)
+  try {
+    const cache = { fetchedAt: Date.now(), intel: normalize(await fetchIntelGraphql()), source: 'graphql' as const }
+    writeIntelCache(cache)
+    return cache
+  } catch (gqlError) {
+    throw new Error(`intel unavailable — json: ${describe(jsonError)}; graphql: ${describe(gqlError)}`)
   }
 }

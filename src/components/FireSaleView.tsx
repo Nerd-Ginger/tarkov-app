@@ -353,7 +353,7 @@ export function FireSaleView({
           </button>
           <span className="flow-hint">
             {fetchedAt && <>prices {timeAgo(fetchedAt)}</>}
-            {source === 'json' && <BackupApiTag />}
+            {source === 'graphql' && <BackupApiTag />}
             {offline && <em className="offline"> · offline, showing cached</em>}
           </span>
         </div>

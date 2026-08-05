@@ -74,7 +74,7 @@ export function BossesView({ intel, fetchedAt, source, loading, offline, onRefre
           </button>
           <span className="flow-hint">
             {fetchedAt && <>intel updated {ago(fetchedAt)}</>}
-            {source === 'json' && <BackupApiTag />}
+            {source === 'graphql' && <BackupApiTag />}
             {offline && <em className="offline"> · offline, cached</em>}
           </span>
         </div>

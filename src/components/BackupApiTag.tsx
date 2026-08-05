@@ -1,14 +1,17 @@
 /**
- * Shown when a dataset came from tarkov.dev's JSON API instead of GraphQL —
- * i.e. their GraphQL VPS was unreachable. The data is good, just sourced from
- * the backup, which explains small differences (a few missing quests, flea
- * prices derived from the last low offer).
+ * Shown when a dataset came from tarkov.dev's GraphQL API instead of their JSON
+ * endpoints — i.e. JSON was unreachable and we fell back.
+ *
+ * This used to mean the opposite. JSON is the primary source now, so a
+ * json-sourced dataset is the normal case and gets no tag at all; GraphQL is
+ * the one worth flagging, since it can't supply the dialogue requirements and
+ * has been the less reliable half.
  */
 export function BackupApiTag() {
   return (
     <em
       className="backup-api"
-      title="tarkov.dev's GraphQL server was unreachable, so this came from their JSON API. It refreshes back to the main source automatically."
+      title="tarkov.dev's JSON API was unreachable, so this came from their GraphQL server instead. The data is good, but a few quest requirements aren't available from that source. It refreshes back automatically."
     >
       {' '}
       · via backup API

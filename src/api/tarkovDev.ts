@@ -193,6 +193,12 @@ export interface TaskCache {
   source?: DataSource
   /** Which game mode this data is for. Absent = pve, the only mode before the toggle. */
   mode?: GameMode
+  /**
+   * Quest id → when the API first stopped returning it. Ids the API still
+   * serves are absent. Lets a carried-forward quest expire on its own; see
+   * CARRY_FORWARD_MS.
+   */
+  orphanedAt?: Record<string, number>
 }
 
 /**
@@ -343,14 +349,53 @@ async function fetchStimsGraphql(mode: GameMode): Promise<RawStim[]> {
  * ([PVE ZONE] vs [PVP ZONE]) under different ids, and merging across would show
  * both variants of every Arena quest side by side.
  */
+/**
+ * How long a quest the API has stopped returning is kept around.
+ *
+ * The union exists so a partial payload can't make quests vanish mid-wipe, but
+ * without a bound it also means a quest BSG genuinely deleted survives forever:
+ * every refresh rewrites the cache from the previous one, so the orphan keeps
+ * being copied into the next generation. A week is long enough to ride out an
+ * API hiccup and short enough that a real deletion clears on its own.
+ */
+const CARRY_FORWARD_MS = 7 * 24 * 60 * 60 * 1000
+
+/**
+ * Keeps quests the payload omitted, and records when each first went missing.
+ *
+ * The timestamp has to live per-quest rather than on the cache: the merged
+ * cache is rewritten with a fresh `fetchedAt` on every refresh, so comparing
+ * against that would always look recent and nothing would ever expire.
+ */
+function carryForward(
+  base: TaskCache,
+  fromJson: Set<string>,
+  now: number,
+): { tasks: RawTask[]; orphanedAt: Record<string, number> } {
+  const prev = base.orphanedAt ?? {}
+  const orphanedAt: Record<string, number> = {}
+  const tasks: RawTask[] = []
+  for (const t of base.tasks) {
+    if (fromJson.has(t.id)) continue
+    const since = prev[t.id] ?? now
+    if (now - since > CARRY_FORWARD_MS) continue
+    orphanedAt[t.id] = since
+    tasks.push(t)
+  }
+  return { tasks, orphanedAt }
+}
+
 function mergeWithBase(json: JsonTaskData, mode: GameMode): TaskCache {
   const base = readCacheFor(mode) ?? (mode === 'pve' ? SNAPSHOT : null)
   const fromJson = new Set(json.tasks.map((t) => t.id))
+  const now = Date.now()
+  const carried = base ? carryForward(base, fromJson, now) : { tasks: [], orphanedAt: {} }
   return {
-    fetchedAt: Date.now(),
+    fetchedAt: now,
     source: 'json',
     mode,
-    tasks: base ? [...json.tasks, ...base.tasks.filter((t) => !fromJson.has(t.id))] : json.tasks,
+    orphanedAt: carried.orphanedAt,
+    tasks: [...json.tasks, ...carried.tasks],
     stations: json.stations.length > 0 ? json.stations : (base?.stations ?? []),
     // ammo has no JSON endpoint; null = couldn't derive it from item properties
     ammo: json.ammo ?? base?.ammo ?? [],
@@ -365,35 +410,47 @@ function mergeWithBase(json: JsonTaskData, mode: GameMode): TaskCache {
   }
 }
 
+/**
+ * JSON is the primary source; GraphQL is the backup.
+ *
+ * It used to be the other way round. GraphQL has been the unreliable half for
+ * a while — it currently answers 422 "server unavailable" — and the JSON
+ * endpoints are also the richer ones for our purposes: `otherRequirements`
+ * (the dialogue gates) exists only there, and JSON carries quest XP inline so
+ * the separate xpTable merge GraphQL needs doesn't apply.
+ *
+ * GraphQL is kept rather than deleted because it's a genuinely independent
+ * path: if json.tarkov.dev has an outage, it's the difference between a stale
+ * view and a broken one.
+ */
 export async function fetchTasks(mode: GameMode = 'pve'): Promise<TaskCache> {
-  let gqlError: unknown
-  if (!forceJson()) {
-    try {
-      const [core, stims] = await Promise.all([
-        fetchTasksGraphql(mode),
-        // optional dataset: a stim failure must never fail the whole load
-        fetchStimsGraphql(mode).catch(() => null),
-      ])
-      if (stims && stims.length === 0) console.warn('tarkov.dev returned no stims')
-      const cache: TaskCache = {
-        fetchedAt: Date.now(),
-        source: 'graphql',
-        mode,
-        ...core,
-        // keep whatever we had rather than blanking the view on an empty result
-        stims: stims?.length ? stims : (readCache()?.stims ?? SNAPSHOT.stims ?? []),
-      }
-      writeCache(cache)
-      return cache
-    } catch (e) {
-      gqlError = e
-    }
-  }
+  let jsonError: unknown
   try {
     const cache = mergeWithBase(await tasksFromJson(mode), mode)
     writeCache(cache)
     return cache
-  } catch (jsonError) {
-    throw new Error(`quest data unavailable — graphql: ${describe(gqlError)}; json: ${describe(jsonError)}`)
+  } catch (e) {
+    jsonError = e
+  }
+  if (forceJson()) throw new Error(`quest data unavailable — json: ${describe(jsonError)}`)
+  try {
+    const [core, stims] = await Promise.all([
+      fetchTasksGraphql(mode),
+      // optional dataset: a stim failure must never fail the whole load
+      fetchStimsGraphql(mode).catch(() => null),
+    ])
+    if (stims && stims.length === 0) console.warn('tarkov.dev returned no stims')
+    const cache: TaskCache = {
+      fetchedAt: Date.now(),
+      source: 'graphql',
+      mode,
+      ...core,
+      // keep whatever we had rather than blanking the view on an empty result
+      stims: stims?.length ? stims : (readCache()?.stims ?? SNAPSHOT.stims ?? []),
+    }
+    writeCache(cache)
+    return cache
+  } catch (gqlError) {
+    throw new Error(`quest data unavailable — json: ${describe(jsonError)}; graphql: ${describe(gqlError)}`)
   }
 }

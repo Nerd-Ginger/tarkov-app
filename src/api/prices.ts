@@ -178,22 +178,9 @@ async function fetchPricesGraphql(mode: PriceMode): Promise<RawPriceItem[]> {
   return items
 }
 
+/** JSON first, GraphQL as the backup — see fetchTasks for why. */
 export async function fetchPrices(mode: PriceMode = 'pve'): Promise<PricesCache> {
-  let gqlError: unknown
-  if (!forceJson()) {
-    try {
-      const cache = {
-        fetchedAt: Date.now(),
-        prices: (await fetchPricesGraphql(mode)).map(trim),
-        source: 'graphql' as const,
-        mode,
-      }
-      writePricesCache(cache)
-      return cache
-    } catch (e) {
-      gqlError = e
-    }
-  }
+  let jsonError: unknown
   try {
     const cache = {
       fetchedAt: Date.now(),
@@ -203,7 +190,20 @@ export async function fetchPrices(mode: PriceMode = 'pve'): Promise<PricesCache>
     }
     writePricesCache(cache)
     return cache
-  } catch (jsonError) {
-    throw new Error(`prices unavailable — graphql: ${describe(gqlError)}; json: ${describe(jsonError)}`)
+  } catch (e) {
+    jsonError = e
+  }
+  if (forceJson()) throw new Error(`prices unavailable — json: ${describe(jsonError)}`)
+  try {
+    const cache = {
+      fetchedAt: Date.now(),
+      prices: (await fetchPricesGraphql(mode)).map(trim),
+      source: 'graphql' as const,
+      mode,
+    }
+    writePricesCache(cache)
+    return cache
+  } catch (gqlError) {
+    throw new Error(`prices unavailable — json: ${describe(jsonError)}; graphql: ${describe(gqlError)}`)
   }
 }

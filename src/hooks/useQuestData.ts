@@ -59,10 +59,12 @@ export function useQuestData(mode: GameMode = 'pve') {
       return
     }
     setCache(current)
-    // json-sourced data is a stand-in for a downed GraphQL VPS — recheck sooner
-    // than the usual 12h so we pick GraphQL back up once it recovers
-    const maxAge = current.source === 'json' ? 2 * 60 * 60 * 1000 : CACHE_MAX_AGE_MS
-    if (Date.now() - current.fetchedAt > maxAge) void refresh(mode)
+    // One TTL for both sources now that JSON is primary. It used to re-check
+    // json-sourced data every 2h, on the theory that JSON was a stand-in for a
+    // downed GraphQL and we wanted to pick GraphQL back up quickly. With JSON
+    // as the normal path that would just mean hitting their API 6x more often
+    // for no new data.
+    if (Date.now() - current.fetchedAt > CACHE_MAX_AGE_MS) void refresh(mode)
   }, [mode, refresh])
 
   const quests = useMemo(() => (cache ? normalizeTasks(cache.tasks) : []), [cache])

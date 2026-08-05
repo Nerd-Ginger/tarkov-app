@@ -191,7 +191,10 @@ export default function App() {
   }, [view, ensureFreshPrices, ensureFreshIntel])
 
   /** What every availability check is judged against. */
-  const gateCtx = useMemo(() => ({ done, active, failed }), [done, active, failed])
+  const gateCtx = useMemo(
+    () => ({ done, active, failed, profile }),
+    [done, active, failed, profile],
+  )
 
   const questById = useMemo(() => new Map(quests.map((q) => [q.id, q])), [quests])
   const levelByKey = useMemo(() => new Map(stations.map((l) => [l.key, l])), [stations])
@@ -588,7 +591,7 @@ export default function App() {
             {fetchedAt && (
               <span className="freshness">
                 data: tarkov.dev · {timeAgo(fetchedAt)}
-                {questSource === 'json' && <BackupApiTag />}
+                {questSource === 'graphql' && <BackupApiTag />}
                 {offline && <em className="offline"> · offline, showing cached</em>}
               </span>
             )}

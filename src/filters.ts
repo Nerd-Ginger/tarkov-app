@@ -1,6 +1,7 @@
-import type { ObjectiveCategory, Quest, QuestPrereq } from './types'
+import type { ObjectiveCategory, Profile, Quest, QuestPrereq } from './types'
 import type { QuestProgress } from './hooks/useQuestProgress'
 import { matchesMapNeeded } from './data/progress'
+import { evalTraderReq } from './data/requirements'
 
 /** Completion state the map filter needs to know "am I done with this map?". */
 export interface MapProgressCtx {
@@ -42,6 +43,8 @@ export interface QuestGateCtx {
   done: Set<string>
   active: Set<string>
   failed: Set<string>
+  /** Optional: without it, trader loyalty/standing gates are simply not applied. */
+  profile?: Profile
 }
 
 /**
@@ -73,9 +76,20 @@ function failedOnly(p: QuestPrereq): boolean {
  *
  * Fail-only prereqs never block — a user who hasn't discovered the failed
  * toggle must not silently lose quests.
+ *
+ * Trader loyalty and standing block only when they evaluate to a *definite*
+ * unmet — i.e. you've told us the number and it's below the bar. An unset field
+ * reads `unknown` and never hides anything, which keeps the original rule
+ * intact: we never hide a quest on absence of information. This matters more
+ * since the patch moved gates off quest chains and onto standing — Network
+ * Provider Pt1 traded 13 prerequisites for a single Fence reputation check, so
+ * without this it would sit in Best Quests from level 1.
  */
 export function isBlocked(q: Quest, ctx: QuestGateCtx): boolean {
-  return q.prereqs.some((p) => !failedOnly(p) && !prereqMet(p, ctx))
+  if (q.prereqs.some((p) => !failedOnly(p) && !prereqMet(p, ctx))) return true
+  const p = ctx.profile
+  if (!p) return false
+  return q.traderReqs.some((r) => evalTraderReq(r, p).state === 'unmet')
 }
 
 /** Every filter except map selection — the maps section applies this per map row. */
