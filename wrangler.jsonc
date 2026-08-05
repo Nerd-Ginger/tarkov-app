@@ -1,0 +1,9 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tarkov-quest-tracker",
+  "compatibility_date": "2026-08-04",
+  // Vite inlines everything into a single dist/index.html (vite-plugin-singlefile),
+  // so there is nothing to deploy but that one file. dist/ is gitignored — CI
+  // builds it fresh rather than committing build output.
+  "pages_build_output_dir": "dist"
+}
