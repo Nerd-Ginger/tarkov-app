@@ -26,13 +26,21 @@ Map chips, objective-type chips, trader dropdown, PMC-level cap, Kappa-only, hid
 
 ## Data & updates
 
-Quest data comes live from the free [tarkov.dev](https://tarkov.dev) GraphQL API (`api.tarkov.dev/graphql`) on load, cached in `localStorage` for 12h (stale-while-revalidate). It reloads instantly from cache and refreshes in the background; if the API is unreachable it keeps showing cached data with an "offline" note. **Refresh data** forces a re-fetch — click it after a game patch changes quests. No manual data files to maintain.
+Quest data comes live from the free [tarkov.dev](https://tarkov.dev) API on load, cached in `localStorage` for 12h (stale-while-revalidate). It reloads instantly from cache and refreshes in the background; if the API is unreachable it keeps showing cached data with an "offline" note. **Refresh data** forces a re-fetch — click it after a game patch changes quests. No manual data files to maintain.
 
-The query uses `gameMode: pve` — this is the **PvE** version's quest list (it differs from regular/PvP). To switch to PvP, change `gameMode: pve` to `gameMode: regular` in [tarkovDev.ts](src/api/tarkovDev.ts).
+**`json.tarkov.dev` is the primary source; GraphQL (`api.tarkov.dev/graphql`) is the fallback.** It used to be the other way round. GraphQL has been the unreliable half — answering HTTP 422 "server unavailable" for weeks — and JSON is also the richer source here: quest dialogue requirements (`otherRequirements`) exist only there, and JSON carries quest XP inline. GraphQL is kept rather than deleted because it's a genuinely independent path if the JSON host has an outage. A dataset served by the fallback is tagged *via backup API* in the UI.
 
-For offline/standalone use the current quest data is also baked in as [snapshot.json](src/data/snapshot.json) (used as the initial seed, then refreshed live). Regenerate it by re-running the PvE query and saving `data.tasks` under `{ fetchedAt, tasks }`.
+PvE and PvP are a **header toggle**, not a code edit — it switches quests, prices, hideout, barters and crafts together. Progress is keyed by quest id, so it survives switching modes.
 
-Your "done" progress lives in a separate `localStorage` key (`tarkov.done.v1`), so refreshing quest data never wipes it.
+For offline/standalone use the current PvE data is baked in as [snapshot.json](src/data/snapshot.json) — the seed for a first run with no cache, and the merge base if a payload comes back partial. Regenerate it with:
+
+```
+npm run snapshot
+```
+
+That runs the app's own `tasksFromJson`, so the file can't drift in shape from the live pipeline. Re-run it after a patch.
+
+Your progress lives in separate `localStorage` keys (`tarkov.done.v1`, `tarkov.active.v1`, `tarkov.failed.v1`, …), so refreshing quest data never wipes it. **Save progress** exports a versioned JSON file; older saves import with new fields defaulted so nothing is lost and nothing newly hidden.
 
 ## Running it
 
@@ -40,8 +48,27 @@ Requires Node.js (installed at `C:\Program Files\nodejs` on this machine).
 
 ```
 npm install
-npm run dev      # dev server at http://localhost:5173
-npm run build    # type-check + production build into dist/
+npm run dev       # dev server at http://localhost:5173
+npm run build     # type-check + production build into dist/
+npm run snapshot  # regenerate the bundled offline data
 ```
 
 Built with React 19 + TypeScript + Vite. No backend, no API key.
+
+The production build is a **single self-contained `dist/index.html`** (`vite-plugin-singlefile`) — everything inlined, so it runs from a local file with no server.
+
+## Deployment
+
+Live at **[tarkov-quest-tracker.pages.dev](https://tarkov-quest-tracker.pages.dev)** on Cloudflare Pages.
+
+Pushing to `main` deploys automatically: [.github/workflows/deploy.yml](.github/workflows/deploy.yml) checks out, installs, **typechecks**, builds, then uploads `dist/`. The typecheck runs before the build on purpose — a commit that doesn't compile fails in Actions rather than reaching the live site.
+
+`dist/` is gitignored, so CI builds from source and the live site can't drift from what's on `main`.
+
+The Action needs two repository secrets: `CLOUDFLARE_API_TOKEN` (a custom token with `Account → Cloudflare Pages → Edit`) and `CLOUDFLARE_ACCOUNT_ID`.
+
+To deploy by hand instead — no token needed, uses your local `wrangler login`:
+
+```
+npm run deploy
+```
