@@ -73,7 +73,21 @@ export function MapCanvas({
   onMarkerClick,
 }: Props) {
   const tileUrl = activeTiles ?? art.tiles
-  const useTiles = !!(tileUrl && art.transform)
+  /**
+   * Tiles are the FALLBACK, not the primary.
+   *
+   * Switching to tiles wholesale was a mistake: their pyramids are sparse, so a
+   * missing tile inside a map's own range leaves a hole rather than artwork.
+   * On Customs that stranded a third of the map — Powerline Tower, Sniper
+   * Ridge, Checkpoint and Depot all sat on black with no map under them. The
+   * published transform is accurate; the imagery behind it simply isn't
+   * complete.
+   *
+   * So SVG wins wherever it exists, and tiles cover the two maps that publish
+   * no SVG at all (The Lab, The Labyrinth) — which is still a gain, since those
+   * previously rendered no background whatsoever.
+   */
+  const useTiles = !art.svg && !!(tileUrl && art.transform)
   const { svg, loading, failed } = useMapSvg(useTiles ? null : art.svg)
   const artRef = useRef<SVGGElement | null>(null)
 
