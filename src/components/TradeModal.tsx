@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
-import type { Barter, Craft, PriceRow, Profile, StationLevel, TradeItem } from '../types'
-import { ROUBLES_ID } from '../api/prices'
+import type { Barter, Craft, PriceRow, Profile, StationLevel } from '../types'
 import { traderLoyalty } from '../hooks/useProfile'
 import { FirBadge, TradeList } from './TradeParts'
+import { getValue, giveCost } from '../data/tradeValue'
 
 export type TradeModalData =
   | { kind: 'barter'; barter: Barter }
@@ -15,45 +15,6 @@ interface Props {
   built: Set<string>
   prices: Map<string, PriceRow>
   onClose: () => void
-}
-
-interface SideValue {
-  total: number
-  /** Items with no usable price (flea-banned inputs, unlisted items). */
-  unpriced: TradeItem[]
-}
-
-/** Cost to buy the inputs off the flea (Roubles = face value). */
-function giveCost(items: TradeItem[], prices: Map<string, PriceRow>): SideValue {
-  let total = 0
-  const unpriced: TradeItem[] = []
-  for (const t of items) {
-    if (t.item.id === ROUBLES_ID) {
-      total += t.count
-      continue
-    }
-    const flea = prices.get(t.item.id)?.flea
-    if (t.noFlea || flea == null) unpriced.push(t)
-    else total += flea * t.count
-  }
-  return { total, unpriced }
-}
-
-/** What the rewards are worth — flea when sellable, else best trader. */
-function getValue(items: TradeItem[], prices: Map<string, PriceRow>): SideValue {
-  let total = 0
-  const unpriced: TradeItem[] = []
-  for (const t of items) {
-    if (t.item.id === ROUBLES_ID) {
-      total += t.count
-      continue
-    }
-    const p = prices.get(t.item.id)
-    const v = p?.flea ?? (p && p.trader > 0 ? p.trader : null)
-    if (v == null) unpriced.push(t)
-    else total += v * t.count
-  }
-  return { total, unpriced }
 }
 
 const rub = (n: number) => `₽${Math.round(n).toLocaleString()}`

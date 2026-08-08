@@ -7,12 +7,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AmmoView } from './components/AmmoView'
 import { StimsView } from './components/StimsView'
 import { BossesView } from './components/BossesView'
-import { FireSaleView } from './components/FireSaleView'
 import { KeysView } from './components/KeysView'
 import { ItemModal } from './components/ItemModal'
-import { BartersView } from './components/BartersView'
 import { BestQuests } from './components/BestQuests'
-import { CraftsView } from './components/CraftsView'
+import { YardSaleView } from './components/YardSaleView'
 import { BackupApiTag } from './components/BackupApiTag'
 import { ProfileView } from './components/ProfileView'
 import { TradeModal } from './components/TradeModal'
@@ -55,9 +53,7 @@ type View =
   | 'best'
   | 'items'
   | 'hideout'
-  | 'barters'
-  | 'crafts'
-  | 'firesale'
+  | 'yardsale'
   | 'keys'
   | 'bosses'
   | 'ammo'
@@ -74,37 +70,46 @@ const VIEWS: { id: View; label: string }[] = [
   { id: 'bosses', label: 'Bosses' },
   { id: 'items', label: 'Items' },
   { id: 'hideout', label: 'Hideout' },
-  { id: 'barters', label: 'Barter' },
-  { id: 'crafts', label: 'Crafts' },
-  { id: 'firesale', label: 'Fire Sale' },
+  { id: 'yardsale', label: 'Yard Sale' },
   { id: 'keys', label: 'Keys' },
   { id: 'meds', label: 'Meds' },
   { id: 'profile', label: 'Profile' },
 ]
 
-const OTHER_VIEWS = new Set<string>([
-  'best',
-  'items',
-  'hideout',
-  'barters',
-  'crafts',
-  'firesale',
-  'keys',
-  'bosses',
-  'ammo',
-  'meds',
-  'map',
-  'profile',
-])
+/**
+ * Allow-list for the persisted view, derived rather than hand-maintained.
+ *
+ * It used to be a second literal list, which meant adding a view to VIEWS and
+ * forgetting this one silently broke persistence with no type error.
+ */
+const KNOWN_VIEWS = new Set<string>(VIEWS.map((v) => v.id))
+
+/** Views folded into Yard Sale — remembered so nobody's saved tab quietly resets. */
+const LEGACY_VIEWS: Record<string, View> = {
+  barters: 'yardsale',
+  crafts: 'yardsale',
+  firesale: 'yardsale',
+}
 
 /** Views that show flea prices — visiting one triggers the lazy price fetch. */
-const PRICE_VIEWS = new Set<View>(['items', 'barters', 'crafts', 'firesale', 'keys'])
+const PRICE_VIEWS = new Set<View>(['items', 'yardsale', 'keys'])
 /** Views that need trader-reset / goon / boss intel. */
-const INTEL_VIEWS = new Set<View>(['barters', 'bosses', 'firesale'])
+const INTEL_VIEWS = new Set<View>(['yardsale', 'bosses'])
 
 function readView(): View {
   const v = localStorage.getItem(VIEW_KEY)
-  return v && OTHER_VIEWS.has(v) ? (v as View) : 'quests'
+  if (!v) return 'quests'
+  const migrated = LEGACY_VIEWS[v]
+  if (migrated) {
+    // write it back so the mapping is only needed once
+    try {
+      localStorage.setItem(VIEW_KEY, migrated)
+    } catch {
+      // fine — it'll just migrate again next load
+    }
+    return migrated
+  }
+  return KNOWN_VIEWS.has(v) ? (v as View) : 'quests'
 }
 
 function timeAgo(ts: number): string {
@@ -779,21 +784,38 @@ export default function App() {
           <HideoutView stations={stations} built={built} inventory={inventory} onToggleBuilt={toggleLevel} />
         )}
 
-        {view === 'barters' && (
+        {view === 'yardsale' && (
           <section>
-            <h2>Barter</h2>
+            <h2>Yard Sale</h2>
             <p className="legend">
-              Every trader barter, bucketed by trader. The search covers all traders at once — several sell the
-              same thing. <strong className="warn-text">FIR</strong> = the barter needs items banned from the flea
-              market, so you'll have to find them in raid.
+              One row per item, with every way to get it — <strong>buy</strong> from a trader,{' '}
+              <strong>barter</strong> for it, or <strong>craft</strong> it — next to what it sells for. Live{' '}
+              {gameMode === 'pve' ? 'PvE' : 'PvP'} prices from tarkov.dev, refreshed ~hourly when online. 🔒 marks a
+              route above your trader loyalty or station level (set both in Profile).{' '}
+              <strong>≥</strong> means the cost is a floor because some inputs are flea-banned and have no market
+              price — nearly half of all barters are like that. <strong className="warn-text">✱</strong> = flea-banned,
+              trader-only. Click a route to see the full recipe.
             </p>
-            <BartersView
+            <YardSaleView
               {...favProps}
-              barters={barters}
+              priceRows={priceRows}
+              pricesById={pricesById}
+              usage={itemUsage}
               profile={profile}
+              locked={locked}
+              built={built}
               done={done}
               traderResets={intel.traderResets}
-              onOpen={openBarter}
+              fetchedAt={pricesFetchedAt}
+              source={pricesSource}
+              mode={gameMode}
+              onSetMode={setGameMode}
+              loading={pricesLoading}
+              offline={pricesOffline}
+              onRefresh={() => void refreshPrices()}
+              onItemClick={setItemModal}
+              onOpenBarter={openBarter}
+              onOpenCraft={openCraft}
             />
           </section>
         )}
@@ -829,8 +851,8 @@ export default function App() {
           <section>
             <h2>Profile</h2>
             <p className="legend">
-              Your character level and trader loyalty. These drive the Barter view's <strong>Can buy</strong>{' '}
-              filter so it only shows what you actually have access to. Saved with your progress file.
+              Your character level and trader loyalty. These drive Yard Sale's <strong>Can get</strong> filter so it
+              only shows routes you actually have access to. Saved with your progress file.
             </p>
             <ProfileView
               profile={profile}
@@ -843,47 +865,6 @@ export default function App() {
               onSetFaction={setFaction}
               onSetReputation={setReputation}
               onResetForWipe={resetForWipe}
-            />
-          </section>
-        )}
-
-        {view === 'crafts' && (
-          <section>
-            <h2>Crafts</h2>
-            <p className="legend">
-              Every hideout craft, bucketed by station. The search covers all stations at once.{' '}
-              <strong className="warn-text">FIR</strong> = the craft needs flea-banned items — find them in raid.
-              Flip <strong>Hideout tracking</strong> to hide recipes your tracked hideout can't make yet.
-            </p>
-            <CraftsView {...favProps} crafts={crafts} built={built} onOpen={openCraft} />
-          </section>
-        )}
-
-        {view === 'firesale' && (
-          <section>
-            <h2>Fire Sale</h2>
-            <p className="legend">
-              Live {gameMode === 'pve' ? 'PvE' : 'PvP'} prices from tarkov.dev (refreshed ~hourly when online) —
-              both sides of the market.{' '}
-              <strong>Buy</strong> is the cheapest offer you can actually take at your trader loyalty (set it in
-              Profile); 🔒 means a cheaper one sits above your level. <strong>Sell</strong> and{' '}
-              <strong>₽/slot</strong> only count traders you've unlocked.{' '}
-              <strong className="warn-text">✱</strong> = flea-banned, trader-only.
-            </p>
-            <FireSaleView
-              {...favProps}
-              rows={priceRows}
-              profile={profile}
-              locked={locked}
-              traderResets={intel.traderResets}
-              fetchedAt={pricesFetchedAt}
-              source={pricesSource}
-              mode={gameMode}
-              onSetMode={setGameMode}
-              loading={pricesLoading}
-              offline={pricesOffline}
-              onRefresh={() => void refreshPrices()}
-              onItemClick={setItemModal}
             />
           </section>
         )}
