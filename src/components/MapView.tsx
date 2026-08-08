@@ -45,7 +45,7 @@ interface Placed {
 export function MapView({ quests, mapIds, progress, done, active, hideDone, onQuestClick }: Props) {
   const [selectedMap, setSelectedMap] = useState<string | null>(null)
   const [showLabels, setShowLabels] = useState(true)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   /** Display name → the map ids that roll up into it (Night Factory → Factory). */
   const idsByName = useMemo(() => {
@@ -110,7 +110,7 @@ export function MapView({ quests, mapIds, progress, done, active, hideDone, onQu
   const slug = (selectedMap && idsByName.get(selectedMap)?.slug) || ''
   const art = MAP_ART[slug]
 
-  const selected = placed.find((p) => p.marker.id === selectedId)
+  const selected = placed.filter((p) => selectedIds.includes(p.marker.id))
 
   if (mapNames.length === 0) {
     return (
@@ -132,7 +132,7 @@ export function MapView({ quests, mapIds, progress, done, active, hideDone, onQu
               className={`chip ${selectedMap === m ? 'active' : ''}`}
               onClick={() => {
                 setSelectedMap(m)
-                setSelectedId(null)
+                setSelectedIds([])
               }}
             >
               {m} <span className="chip-count">{byMap.get(m)?.length ?? 0}</span>
@@ -169,18 +169,29 @@ export function MapView({ quests, mapIds, progress, done, active, hideDone, onQu
             art={art}
             markers={placed.map((p) => p.marker)}
             showLabels={showLabels}
-            selectedId={selectedId}
-            onMarkerClick={setSelectedId}
+            selectedIds={selectedIds}
+            onMarkerClick={setSelectedIds}
           />
-          {selected && (
+          {selected.length > 0 && (
             <div className="map-selection">
-              <button className="quest-link" onClick={() => onQuestClick(selected.quest)}>
-                {selected.quest.name}
-              </button>
-              <span className="map-selection-obj">{selected.objectiveDescription}</span>
-              <span className="map-selection-meta">
-                {selected.quest.trader} · Lv {selected.quest.minLevel}+
-              </span>
+              {selected.length > 1 && (
+                <span className="map-selection-count">
+                  {selected.length} objectives at this spot
+                </span>
+              )}
+              <ul className="map-selection-list">
+                {selected.map((s) => (
+                  <li key={s.marker.id}>
+                    <button className="quest-link" onClick={() => onQuestClick(s.quest)}>
+                      {s.quest.name}
+                    </button>
+                    <span className="map-selection-obj">{s.objectiveDescription}</span>
+                    <span className="map-selection-meta">
+                      {s.quest.trader} · Lv {s.quest.minLevel}+
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </>
