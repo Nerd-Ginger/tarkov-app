@@ -3156,3 +3156,13 @@ tr.covered .item-name {
   color: var(--text-dim);
   font-size: 12px;
 }
+
+/* raster tiles sit where the SVG artwork used to; same knock-back treatment */
+.map-tiles {
+  filter: brightness(0.68) saturate(0.6) contrast(0.95);
+}
+
+.map-tiles image {
+  /* neighbouring tiles must not show a hairline seam between them */
+  shape-rendering: crispEdges;
+}

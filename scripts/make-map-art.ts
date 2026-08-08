@@ -30,6 +30,7 @@ const WANTED = [
 interface UpstreamLayer {
   name: string
   svgLayer?: string
+  tilePath?: string
   show?: boolean
   extents?: { height: [number, number]; bounds?: [[number, number], [number, number], string?][] }[]
 }
@@ -43,6 +44,11 @@ interface UpstreamMap {
   svgLayer?: string
   layers?: UpstreamLayer[]
   tilePath?: string
+  /** [scaleX, offsetX, scaleZ, offsetZ] — world → tile pixel space at zoom 0. */
+  transform?: [number, number, number, number]
+  tileSize?: number
+  minZoom?: number
+  maxZoom?: number
   labels?: { position: [number, number]; text: string }[]
 }
 
@@ -77,7 +83,7 @@ const entries = [...picked.entries()]
             return `        { height: [${e.height[0]}, ${e.height[1]}], boxes: [${boxes}] },`
           })
           .join('\n')
-        return `      { name: ${q(l.name)}, group: ${q(l.svgLayer!)}, defaultOn: ${l.show === true}, extents: [\n${ext}\n      ] },`
+        return `      { name: ${q(l.name)}, group: ${q(l.svgLayer!)}, tiles: ${l.tilePath ? q(l.tilePath) : 'null'}, defaultOn: ${l.show === true}, extents: [\n${ext}\n      ] },`
       })
       .join('\n')
     return [
@@ -86,6 +92,10 @@ const entries = [...picked.entries()]
       `    rotation: ${m.coordinateRotation ?? 0},`,
       `    svg: ${m.svgPath ? q(m.svgPath) : 'null'},`,
       `    svgBounds: ${m.svgBounds ? `[[${m.svgBounds[0][0]}, ${m.svgBounds[0][1]}], [${m.svgBounds[1][0]}, ${m.svgBounds[1][1]}]]` : 'null'},`,
+      `    tiles: ${m.tilePath ? q(m.tilePath) : 'null'},`,
+      `    transform: ${m.transform ? `[${m.transform.join(', ')}]` : 'null'},`,
+      `    tileSize: ${m.tileSize ?? 256},`,
+      `    tileZoom: [${m.minZoom ?? 0}, ${m.maxZoom ?? 6}],`,
       `    baseGroup: ${m.svgLayer ? q(m.svgLayer) : 'null'},`,
       `    floors: [`,
       floors,
@@ -149,6 +159,8 @@ export interface MapFloor {
   name: string
   /** id of the <g> inside the SVG. */
   group: string
+  /** This floor's own tile pyramid, when one is published. */
+  tiles: string | null
   /**
    * Drawn alongside the ground floor by default rather than instead of it.
    * Interchange's mall interior is a layer, so hiding it leaves only the
@@ -172,6 +184,25 @@ export interface MapArt {
    * markers plotted on it. Null means the two are the same.
    */
   svgBounds: [[number, number], [number, number]] | null
+  /**
+   * XYZ tile pyramid, preferred over the SVG where one exists.
+   *
+   * Tiles come with \`transform\` — the world-to-pixel mapping tarkov.dev
+   * actually uses — where SVG placement has to be inferred from bounds and got
+   * it wrong differently on Reserve, Interchange and Factory. Tiles also carry
+   * a separate pyramid per floor, so Reserve's ground view genuinely excludes
+   * the bunker interiors instead of relying on SVG group toggling, which can't
+   * reach content drawn inside the ground layer.
+   *
+   * Null on Streets of Tarkov and Lighthouse, which publish no tiles — those
+   * stay on SVG.
+   */
+  tiles: string | null
+  /** [scaleX, offsetX, scaleZ, offsetZ]: pixel = world * scale + offset, at zoom 0. */
+  transform: [number, number, number, number] | null
+  tileSize: number
+  /** [min, max] pyramid zoom levels published. */
+  tileZoom: [number, number]
   /**
    * The SVG group shown by default. Every other floor group is hidden — the
    * artwork stacks all levels in one file, so without this Factory renders its

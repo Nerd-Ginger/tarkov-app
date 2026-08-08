@@ -48,6 +48,8 @@ export interface MapFloor {
   name: string
   /** id of the <g> inside the SVG. */
   group: string
+  /** This floor's own tile pyramid, when one is published. */
+  tiles: string | null
   /**
    * Drawn alongside the ground floor by default rather than instead of it.
    * Interchange's mall interior is a layer, so hiding it leaves only the
@@ -72,6 +74,25 @@ export interface MapArt {
    */
   svgBounds: [[number, number], [number, number]] | null
   /**
+   * XYZ tile pyramid, preferred over the SVG where one exists.
+   *
+   * Tiles come with `transform` — the world-to-pixel mapping tarkov.dev
+   * actually uses — where SVG placement has to be inferred from bounds and got
+   * it wrong differently on Reserve, Interchange and Factory. Tiles also carry
+   * a separate pyramid per floor, so Reserve's ground view genuinely excludes
+   * the bunker interiors instead of relying on SVG group toggling, which can't
+   * reach content drawn inside the ground layer.
+   *
+   * Null on Streets of Tarkov and Lighthouse, which publish no tiles — those
+   * stay on SVG.
+   */
+  tiles: string | null
+  /** [scaleX, offsetX, scaleZ, offsetZ]: pixel = world * scale + offset, at zoom 0. */
+  transform: [number, number, number, number] | null
+  tileSize: number
+  /** [min, max] pyramid zoom levels published. */
+  tileZoom: [number, number]
+  /**
    * The SVG group shown by default. Every other floor group is hidden — the
    * artwork stacks all levels in one file, so without this Factory renders its
    * basement over its ground floor.
@@ -87,9 +108,13 @@ export const MAP_ART: Record<string, MapArt> = {
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/Customs.svg",
     svgBounds: null,
+    tiles: "https://assets.tarkov.dev/maps/customs_0.16/main/{z}/{x}/{y}.png",
+    transform: [0.239, 168.65, 0.239, 136.35],
+    tileSize: 256,
+    tileZoom: [2, 6],
     baseGroup: "Ground_Level",
     floors: [
-      { name: "2nd Floor", group: "Second_Floor", defaultOn: false, extents: [
+      { name: "2nd Floor", group: "Second_Floor", tiles: "https://assets.tarkov.dev/maps/customs_0.16/2nd/{z}/{x}/{y}.png", defaultOn: false, extents: [
         { height: [2.7, 6.5], boxes: [[243, 190, 165, 125], [116, -83, 72, -170], [356, -30, 341, -84], [334, -52, 321, -59], [589, 10, 577, -1], [580, -104, 532, -134], [625, -120, 599, -139]] },
         { height: [5.7, 1000], boxes: [[580, -104, 532, -134], [-199, -90, -223, -131], [239, 3, 169, -160], [336, -56, 316, -95], [584, -46, 556, -92], [93, 0, 65, -22]] },
         { height: [14, 15], boxes: [[497, -44, 450, -90]] },
@@ -97,13 +122,13 @@ export const MAP_ART: Record<string, MapArt> = {
         { height: [4.4, 6.5], boxes: [[119, -57, 100, -42]] },
         { height: [4.6, 7.9], boxes: [[279, -79, 246, -1.4]] },
       ] },
-      { name: "3rd Floor", group: "Third_Floor", defaultOn: false, extents: [
+      { name: "3rd Floor", group: "Third_Floor", tiles: "https://assets.tarkov.dev/maps/customs_0.16/3rd/{z}/{x}/{y}.png", defaultOn: false, extents: [
         { height: [5.7, 1000], boxes: [[243, 190, 165, 125]] },
         { height: [7.7, 11.3], boxes: [[73, -73, 22, -38]] },
         { height: [6.7, 11.6], boxes: [[126, -64, 88, -35]] },
         { height: [8, 11.1], boxes: [[279, -79, 246, -1.4]] },
       ] },
-      { name: "Underground", group: "Underground_Level", defaultOn: false, extents: [
+      { name: "Underground", group: "Underground_Level", tiles: "https://assets.tarkov.dev/maps/customs_0.16/underground/{z}/{x}/{y}.png", defaultOn: false, extents: [
         { height: [-1000, 0.5], boxes: [[635, -137, 620, -125], [473, -122, 458, -110], [314, -173, 308, -184], [349, -88, 323, -32], [219, -158, 193, -137], [122, -61, 88, -40]] },
       ] },
     ],
@@ -139,15 +164,19 @@ export const MAP_ART: Record<string, MapArt> = {
     rotation: 90,
     svg: "https://assets.tarkov.dev/maps/svg/Factory.svg",
     svgBounds: null,
+    tiles: "https://assets.tarkov.dev/maps/factory/main/{z}/{x}/{y}.png",
+    transform: [1.629, 119.9, 1.629, 139.3],
+    tileSize: 256,
+    tileZoom: [1, 6],
     baseGroup: "Ground_Floor",
     floors: [
-      { name: "2nd Floor", group: "Second_Floor", defaultOn: false, extents: [
+      { name: "2nd Floor", group: "Second_Floor", tiles: "https://assets.tarkov.dev/maps/factory/2nd/{z}/{x}/{y}.png", defaultOn: false, extents: [
         { height: [3, 6], boxes: [] },
       ] },
-      { name: "3rd Floor", group: "Third_Floor", defaultOn: false, extents: [
+      { name: "3rd Floor", group: "Third_Floor", tiles: "https://assets.tarkov.dev/maps/factory/3rd/{z}/{x}/{y}.png", defaultOn: false, extents: [
         { height: [6, 10000], boxes: [] },
       ] },
-      { name: "Tunnels", group: "Basement", defaultOn: false, extents: [
+      { name: "Tunnels", group: "Basement", tiles: "https://assets.tarkov.dev/maps/factory/tunnels/{z}/{x}/{y}.png", defaultOn: false, extents: [
         { height: [-10000, -1], boxes: [] },
       ] },
     ],
@@ -186,16 +215,20 @@ export const MAP_ART: Record<string, MapArt> = {
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/GroundZero.svg",
     svgBounds: null,
+    tiles: "https://assets.tarkov.dev/maps/groundzero/main_summer/{z}/{x}/{y}.png",
+    transform: [0.524, 167.3, 0.524, 65.1],
+    tileSize: 256,
+    tileZoom: [1, 6],
     baseGroup: "Ground_Level",
     floors: [
-      { name: "2nd Floor", group: "Second_Floor", defaultOn: false, extents: [
+      { name: "2nd Floor", group: "Second_Floor", tiles: "https://assets.tarkov.dev/maps/groundzero/2nd/{z}/{x}/{y}.png", defaultOn: false, extents: [
         { height: [28, 32.3], boxes: [] },
         { height: [26, 31], boxes: [[98, 216, 91, 228]] },
       ] },
-      { name: "3rd Floor", group: "Third_Floor", defaultOn: false, extents: [
+      { name: "3rd Floor", group: "Third_Floor", tiles: "https://assets.tarkov.dev/maps/groundzero/3rd/{z}/{x}/{y}.png", defaultOn: false, extents: [
         { height: [32.3, 1000], boxes: [] },
       ] },
-      { name: "Garage", group: "Underground_Level", defaultOn: false, extents: [
+      { name: "Garage", group: "Underground_Level", tiles: "https://assets.tarkov.dev/maps/groundzero/garage/{z}/{x}/{y}.png", defaultOn: false, extents: [
         { height: [-1000, 21], boxes: [[117, -100, 43, 190], [143, 49, 117, 80]] },
       ] },
     ],
@@ -220,12 +253,16 @@ export const MAP_ART: Record<string, MapArt> = {
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/Interchange.svg",
     svgBounds: null,
+    tiles: "https://assets.tarkov.dev/maps/interchange/main/{z}/{x}/{y}.png",
+    transform: [0.265, 150.6, 0.265, 134.6],
+    tileSize: 256,
+    tileZoom: [1, 6],
     baseGroup: "Ground_Level",
     floors: [
-      { name: "2nd Floor", group: "First_Floor", defaultOn: true, extents: [
+      { name: "2nd Floor", group: "First_Floor", tiles: null, defaultOn: true, extents: [
         { height: [25, 34], boxes: [[120, 218, -222, -327]] },
       ] },
-      { name: "3rd Floor", group: "Second_Floor", defaultOn: false, extents: [
+      { name: "3rd Floor", group: "Second_Floor", tiles: null, defaultOn: false, extents: [
         { height: [34, 1000], boxes: [[120, 218, -222, -327]] },
       ] },
     ],
@@ -314,6 +351,10 @@ export const MAP_ART: Record<string, MapArt> = {
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/Lighthouse.svg",
     svgBounds: null,
+    tiles: null,
+    transform: [0.2, 0, 0.2, 0],
+    tileSize: 256,
+    tileZoom: [1, 6],
     baseGroup: "Ground_Level",
     floors: [
     ],
@@ -347,9 +388,13 @@ export const MAP_ART: Record<string, MapArt> = {
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/Reserve.svg",
     svgBounds: [[289, -274], [-303, 272]],
+    tiles: "https://assets.tarkov.dev/maps/reserve/main/{z}/{x}/{y}.png",
+    transform: [0.395, 122, 0.395, 137.65],
+    tileSize: 256,
+    tileZoom: [2, 6],
     baseGroup: "Ground_Level",
     floors: [
-      { name: "Bunkers", group: "Bunkers", defaultOn: false, extents: [
+      { name: "Bunkers", group: "Bunkers", tiles: "https://assets.tarkov.dev/maps/reserve/bunkers/{z}/{x}/{y}.png", defaultOn: false, extents: [
         { height: [-10000, -7.27], boxes: [[128, -208, 18, -33], [-46, -42, -176, 127]] },
         { height: [-10000, -12], boxes: [[-40, 124, -124, 189]] },
         { height: [-10000, 18], boxes: [[23, 173, -65, 189]] },
@@ -392,15 +437,19 @@ export const MAP_ART: Record<string, MapArt> = {
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/Shoreline.svg",
     svgBounds: null,
+    tiles: "https://assets.tarkov.dev/maps/shoreline/main_summer/{z}/{x}/{y}.png",
+    transform: [0.16, 83.2, 0.16, 111.1],
+    tileSize: 256,
+    tileZoom: [2, 6],
     baseGroup: "Ground_Level",
     floors: [
-      { name: "2nd Floor", group: "Second_Floor", defaultOn: false, extents: [
+      { name: "2nd Floor", group: "Second_Floor", tiles: null, defaultOn: false, extents: [
         { height: [-1, 2], boxes: [] },
       ] },
-      { name: "3rd Floor", group: "Third_Floor", defaultOn: false, extents: [
+      { name: "3rd Floor", group: "Third_Floor", tiles: null, defaultOn: false, extents: [
         { height: [2, 1000], boxes: [] },
       ] },
-      { name: "Underground", group: "Underground_Level", defaultOn: false, extents: [
+      { name: "Underground", group: "Underground_Level", tiles: null, defaultOn: false, extents: [
         { height: [-1000, -5], boxes: [[-137, -68, -237, -104], [-234, -134, -268, -163]] },
       ] },
     ],
@@ -432,21 +481,25 @@ export const MAP_ART: Record<string, MapArt> = {
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/StreetsOfTarkov.svg",
     svgBounds: null,
+    tiles: null,
+    transform: [0.38, 0, 0.38, 0],
+    tileSize: 256,
+    tileZoom: [1, 5],
     baseGroup: "Ground_Level",
     floors: [
-      { name: "2nd Floor", group: "Second_Floor", defaultOn: false, extents: [
+      { name: "2nd Floor", group: "Second_Floor", tiles: null, defaultOn: false, extents: [
         { height: [10, 15], boxes: [] },
       ] },
-      { name: "3rd Floor", group: "Third_Floor", defaultOn: false, extents: [
+      { name: "3rd Floor", group: "Third_Floor", tiles: null, defaultOn: false, extents: [
         { height: [15, 20], boxes: [] },
       ] },
-      { name: "4th Floor", group: "Fourth_Floor", defaultOn: false, extents: [
+      { name: "4th Floor", group: "Fourth_Floor", tiles: null, defaultOn: false, extents: [
         { height: [20, 25], boxes: [] },
       ] },
-      { name: "5th Floor", group: "Fifth_Floor", defaultOn: false, extents: [
+      { name: "5th Floor", group: "Fifth_Floor", tiles: null, defaultOn: false, extents: [
         { height: [25, 10000], boxes: [] },
       ] },
-      { name: "Underground", group: "Underground_Level", defaultOn: false, extents: [
+      { name: "Underground", group: "Underground_Level", tiles: null, defaultOn: false, extents: [
         { height: [-10000, -6], boxes: [] },
       ] },
     ],
@@ -504,6 +557,10 @@ export const MAP_ART: Record<string, MapArt> = {
     rotation: 270,
     svg: null,
     svgBounds: null,
+    tiles: "https://assets.tarkov.dev/maps/labs_v4/1st/{z}/{x}/{y}.png",
+    transform: [0.575, 281.2, 0.575, 193.7],
+    tileSize: 175,
+    tileZoom: [2, 6],
     baseGroup: null,
     floors: [
     ],
@@ -546,6 +603,10 @@ export const MAP_ART: Record<string, MapArt> = {
     rotation: 270,
     svg: null,
     svgBounds: null,
+    tiles: "https://assets.tarkov.dev/maps/labyrinth/main/{z}/{x}/{y}.png",
+    transform: [2.115, 85.5, 2.115, 128],
+    tileSize: 256,
+    tileZoom: [1, 6],
     baseGroup: null,
     floors: [
     ],
@@ -557,6 +618,10 @@ export const MAP_ART: Record<string, MapArt> = {
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/Woods.svg",
     svgBounds: null,
+    tiles: "https://assets.tarkov.dev/maps/woods/main_0.16/{z}/{x}/{y}.png",
+    transform: [0.1855, 112.95, 0.1855, 167.85],
+    tileSize: 256,
+    tileZoom: [2, 6],
     baseGroup: "Ground_Level",
     floors: [
     ],

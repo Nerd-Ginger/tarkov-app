@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MapArt } from '../data/mapArt'
 import { useMapSvg } from '../hooks/useMapSvg'
+import { MapTiles } from './MapTiles'
 
 /**
  * A pan/zoom SVG viewport for one map's artwork, with markers plotted in raw
@@ -41,6 +42,8 @@ interface Props {
   selectedIds: string[]
   /** SVG group id of the floor to show; null means the map's default. */
   activeGroup: string | null
+  /** That floor's own tile pyramid, when it publishes one. */
+  activeTiles: string | null
   onMarkerClick: (ids: string[]) => void
 }
 
@@ -66,9 +69,12 @@ export function MapCanvas({
   showLabels,
   selectedIds,
   activeGroup,
+  activeTiles,
   onMarkerClick,
 }: Props) {
-  const { svg, loading, failed } = useMapSvg(art.svg)
+  const tileUrl = activeTiles ?? art.tiles
+  const useTiles = !!(tileUrl && art.transform)
+  const { svg, loading, failed } = useMapSvg(useTiles ? null : art.svg)
   const artRef = useRef<SVGGElement | null>(null)
 
   /**
@@ -327,7 +333,16 @@ export function MapCanvas({
         role="img"
       >
         <g transform={`rotate(${art.rotation} ${cx} ${cz})`}>
-          {svg && (
+          {useTiles && tileUrl && (
+            <MapTiles
+              art={art}
+              url={tileUrl}
+              view={{ x: viewX, z: viewZ, w: seenW, h: seenH }}
+              scale={scale}
+            />
+          )}
+
+          {!useTiles && svg && (
             <g
               ref={artRef}
               className="map-art"

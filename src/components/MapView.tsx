@@ -210,8 +210,8 @@ export function MapView({ quests, mapIds, progress, done, active, hideDone, onQu
     const claimed = new Set(alt.flatMap((f) => f.on.map((p) => p.marker.id)))
     const ground = entry.placed.filter((p) => !claimed.has(p.marker.id))
     return [
-      { name: 'Ground', group: art.baseGroup, count: ground.length },
-      ...alt.map((f) => ({ name: f.name, group: f.group as string | null, count: f.on.length })),
+      { name: 'Ground', group: art.baseGroup, tiles: art.tiles, count: ground.length },
+      ...alt.map((f) => ({ name: f.name, group: f.group as string | null, tiles: f.tiles, count: f.on.length })),
     ].filter((f) => f.count > 0)
   }, [art, entry.placed])
 
@@ -365,10 +365,9 @@ export function MapView({ quests, mapIds, progress, done, active, hideDone, onQu
           No map artwork is bundled for {selectedMap}. Its {placed.length} quest location
           {placed.length === 1 ? ' is' : 's are'} in the data, but there's nothing to draw them on.
         </p>
-      ) : !art.svg ? (
+      ) : !art.svg && !art.tiles ? (
         <p className="empty-note">
-          tarkov.dev publishes {selectedMap} only as map tiles, not as an SVG, so there's no
-          background to draw. Its {placed.length} quest location
+          No background artwork is published for {selectedMap}. Its {placed.length} quest location
           {placed.length === 1 ? '' : 's'} still show in the quest list.
         </p>
       ) : (
@@ -378,6 +377,7 @@ export function MapView({ quests, mapIds, progress, done, active, hideDone, onQu
             markers={placed.map((p) => p.marker)}
             showLabels={showLabels}
             activeGroup={activeFloor?.group ?? null}
+            activeTiles={activeFloor?.tiles ?? null}
             selectedIds={selectedIds}
             onMarkerClick={setSelectedIds}
           />
