@@ -3,6 +3,7 @@ import type { Quest } from '../types'
 import type { MapIdentity } from '../data/normalize'
 import { mapSortKey } from '../data/normalize'
 import { MAP_ART } from '../data/mapArt'
+import type { MapArt, MapFloor } from '../data/mapArt'
 import { MapCanvas } from './MapCanvas'
 import type { CanvasMarker } from './MapCanvas'
 import { objectiveComplete } from '../data/progress'
@@ -40,6 +41,55 @@ interface Placed {
   marker: CanvasMarker
   quest: Quest
   objectiveDescription: string
+  /** World height, used to decide which floor this belongs to. */
+  y: number
+}
+
+/** An objective on this map with no meaningful position — "kill 15 Scavs here". */
+interface Anywhere {
+  quest: Quest
+  objectiveDescription: string
+}
+
+/**
+ * Does this location's zone cover so much of the map that it means "anywhere"?
+ *
+ * Measured against the live data: only 3% of zones exceed 5% of their map's
+ * area, and 12 of those 15 are `shoot` objectives. Factory is the worst case —
+ * its Claustrophobia kill zones are 150x80 on a map that is 143x132, i.e. the
+ * whole thing.
+ */
+function spansMap(loc: { outline: { x: number; z: number }[] }, art: MapArt): boolean {
+  if (loc.outline.length < 3) return false
+  const xs = loc.outline.map((p) => p.x)
+  const zs = loc.outline.map((p) => p.z)
+  const w = Math.max(...xs) - Math.min(...xs)
+  const h = Math.max(...zs) - Math.min(...zs)
+  const mapW = Math.abs(art.bounds[1][0] - art.bounds[0][0])
+  const mapH = Math.abs(art.bounds[1][1] - art.bounds[0][1])
+  return (w * h) / (mapW * mapH) > 0.05
+}
+
+/**
+ * Is this objective on the given floor?
+ *
+ * Both tests matter. Height alone put 82 outdoor Customs objectives on the
+ * second floor, because one of its height bands is [5.7, 1000] — that band is
+ * only meant to apply inside Dorms and a handful of other buildings, which is
+ * what the footprint boxes describe. An extent with no boxes applies map-wide.
+ */
+function onFloor(p: Placed, floor: MapFloor): boolean {
+  return floor.extents.some((e) => {
+    if (p.y < e.height[0] || p.y >= e.height[1]) return false
+    if (e.boxes.length === 0) return true
+    return e.boxes.some(
+      ([x1, z1, x2, z2]) =>
+        p.marker.x >= Math.min(x1, x2) &&
+        p.marker.x <= Math.max(x1, x2) &&
+        p.marker.z >= Math.min(z1, z2) &&
+        p.marker.z <= Math.max(z1, z2),
+    )
+  })
 }
 
 export function MapView({ quests, mapIds, progress, done, active, hideDone, onQuestClick }: Props) {
@@ -61,9 +111,11 @@ export function MapView({ quests, mapIds, progress, done, active, hideDone, onQu
 
   /** Every placeable objective, grouped by map display name. */
   const byMap = useMemo(() => {
-    const out = new Map<string, Placed[]>()
-    for (const [name, { ids }] of idsByName) {
+    const out = new Map<string, { placed: Placed[]; anywhere: Anywhere[] }>()
+    for (const [name, { ids, slug }] of idsByName) {
+      const art = MAP_ART[slug]
       const placed: Placed[] = []
+      const anywhere: Anywhere[] = []
       for (const q of quests) {
         for (const o of q.objectives) {
           if (o.optional) continue
@@ -71,9 +123,18 @@ export function MapView({ quests, mapIds, progress, done, active, hideDone, onQu
           if (complete && hideDone) continue
           for (const [i, loc] of o.locations.entries()) {
             if (!ids.has(loc.mapId)) continue
+            // A zone covering most of the map means "anywhere on this map" —
+            // kill 15 Scavs on Factory. As a rectangle it says nothing, and a
+            // dot at its centre is worse: it implies a spot to stand. These are
+            // listed separately so the map stays about actual places.
+            if (art && spansMap(loc, art)) {
+              anywhere.push({ quest: q, objectiveDescription: o.description })
+              continue
+            }
             placed.push({
               quest: q,
               objectiveDescription: o.description,
+              y: loc.y,
               marker: {
                 id: `${o.id}:${i}`,
                 x: loc.x,
@@ -90,10 +151,10 @@ export function MapView({ quests, mapIds, progress, done, active, hideDone, onQu
           }
         }
       }
-      if (placed.length > 0) out.set(name, placed)
+      if (placed.length > 0 || anywhere.length > 0) out.set(name, { placed, anywhere })
     }
     return out
-  }, [quests, idsByName, progress, done, active])
+  }, [quests, idsByName, progress, done, active, hideDone])
 
   const mapNames = useMemo(
     () => [...byMap.keys()].sort((a, b) => mapSortKey(a) - mapSortKey(b)),
@@ -106,9 +167,51 @@ export function MapView({ quests, mapIds, progress, done, active, hideDone, onQu
     if (!selectedMap || !mapNames.includes(selectedMap)) setSelectedMap(mapNames[0])
   }, [mapNames, selectedMap])
 
-  const placed = (selectedMap && byMap.get(selectedMap)) || []
+  const entry = (selectedMap && byMap.get(selectedMap)) || { placed: [], anywhere: [] }
   const slug = (selectedMap && idsByName.get(selectedMap)?.slug) || ''
   const art = MAP_ART[slug]
+
+  /**
+   * Which floor an objective is on, from its world height.
+   *
+   * The artwork stacks every level in one file, so showing them all at once is
+   * what made Factory unreadable — its basement drew over its ground floor.
+   * Floors whose height ranges catch no objectives are dropped from the picker,
+   * so you only see storeys you actually need.
+   */
+  const floors = useMemo(() => {
+    if (!art) return []
+    const alt = art.floors
+      .map((f) => ({ ...f, on: entry.placed.filter((p) => onFloor(p, f)) }))
+      .filter((f) => f.on.length > 0)
+    if (alt.length === 0) return []
+    const claimed = new Set(alt.flatMap((f) => f.on.map((p) => p.marker.id)))
+    const ground = entry.placed.filter((p) => !claimed.has(p.marker.id))
+    return [
+      { name: 'Ground', group: art.baseGroup, count: ground.length },
+      ...alt.map((f) => ({ name: f.name, group: f.group as string | null, count: f.on.length })),
+    ].filter((f) => f.count > 0)
+  }, [art, entry.placed])
+
+  const [floorName, setFloorName] = useState<string | null>(null)
+  useEffect(() => {
+    setFloorName(null)
+  }, [selectedMap])
+  const activeFloor = floors.find((f) => f.name === floorName) ?? floors[0] ?? null
+
+  /** Only the markers on the floor being shown — otherwise they'd float over the wrong storey. */
+  const placed = useMemo(() => {
+    if (!art || floors.length === 0 || !activeFloor) return entry.placed
+    const def = art.floors.find((f) => f.name === activeFloor.name)
+    // the Ground pseudo-floor is everything no alternate floor claims
+    if (!def) {
+      const claimed = new Set(
+        art.floors.flatMap((f) => entry.placed.filter((p) => onFloor(p, f)).map((p) => p.marker.id)),
+      )
+      return entry.placed.filter((p) => !claimed.has(p.marker.id))
+    }
+    return entry.placed.filter((p) => onFloor(p, def))
+  }, [entry.placed, art, floors, activeFloor])
 
   const selected = placed.filter((p) => selectedIds.includes(p.marker.id))
 
@@ -135,11 +238,31 @@ export function MapView({ quests, mapIds, progress, done, active, hideDone, onQu
                 setSelectedIds([])
               }}
             >
-              {m} <span className="chip-count">{byMap.get(m)?.length ?? 0}</span>
+              {m} <span className="chip-count">{(byMap.get(m)?.placed.length ?? 0) + (byMap.get(m)?.anywhere.length ?? 0)}</span>
             </button>
           ))}
         </div>
       </div>
+
+      {floors.length > 1 && (
+        <div className="filter-row">
+          <span className="filter-label">Floor</span>
+          <div className="chip-group">
+            {floors.map((f) => (
+              <button
+                key={f.name}
+                className={`chip ${activeFloor?.name === f.name ? 'active' : ''}`}
+                onClick={() => {
+                  setFloorName(f.name)
+                  setSelectedIds([])
+                }}
+              >
+                {f.name} <span className="chip-count">{f.count}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="filter-row controls">
         <label className="check-label" title="Show the map's named landmarks.">
@@ -147,7 +270,8 @@ export function MapView({ quests, mapIds, progress, done, active, hideDone, onQu
           Landmarks
         </label>
         <span className="legend map-legend-note">
-          {placed.length} location{placed.length === 1 ? '' : 's'} on {selectedMap}
+          {placed.length} location{placed.length === 1 ? '' : 's'}
+          {floors.length > 1 && activeFloor ? ` on ${selectedMap} · ${activeFloor.name}` : ` on ${selectedMap}`}
           {active.size > 0 && ' · active quests highlighted'}
         </span>
       </div>
@@ -169,6 +293,7 @@ export function MapView({ quests, mapIds, progress, done, active, hideDone, onQu
             art={art}
             markers={placed.map((p) => p.marker)}
             showLabels={showLabels}
+            activeGroup={activeFloor?.group ?? null}
             selectedIds={selectedIds}
             onMarkerClick={setSelectedIds}
           />
@@ -195,6 +320,24 @@ export function MapView({ quests, mapIds, progress, done, active, hideDone, onQu
             </div>
           )}
         </>
+      )}
+
+      {entry.anywhere.length > 0 && (
+        <div className="map-anywhere">
+          <span className="map-selection-count">
+            {entry.anywhere.length} more on {selectedMap} with no fixed spot
+          </span>
+          <ul className="map-selection-list">
+            {entry.anywhere.map((a, i) => (
+              <li key={`${a.quest.id}-${i}`}>
+                <button className="quest-link" onClick={() => onQuestClick(a.quest)}>
+                  {a.quest.name}
+                </button>
+                <span className="map-selection-obj">{a.objectiveDescription}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       <p className="legend">

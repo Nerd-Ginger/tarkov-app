@@ -29,6 +29,28 @@ export interface MapLabel {
   text: string
 }
 
+/**
+ * A height band plus the building footprints it applies within.
+ *
+ * Height alone is not enough: on Customs anything above y=5.7 would count as
+ * second floor, which swept 82 outdoor objectives onto the wrong storey. An
+ * objective belongs to a floor only if it is inside one of these boxes AND
+ * within the height band.
+ */
+export interface MapExtent {
+  height: [number, number]
+  /** [x1, z1, x2, z2] corners; empty means the band applies map-wide. */
+  boxes: [number, number, number, number][]
+}
+
+/** An alternate floor: an SVG group to swap in, and where it applies. */
+export interface MapFloor {
+  name: string
+  /** id of the <g> inside the SVG. */
+  group: string
+  extents: MapExtent[]
+}
+
 export interface MapArt {
   /** [[maxX, minZ], [minX, maxZ]] in world units. */
   bounds: [[number, number], [number, number]]
@@ -36,6 +58,13 @@ export interface MapArt {
   rotation: number
   /** Null when the map has no SVG published. */
   svg: string | null
+  /**
+   * The SVG group shown by default. Every other floor group is hidden — the
+   * artwork stacks all levels in one file, so without this Factory renders its
+   * basement over its ground floor.
+   */
+  baseGroup: string | null
+  floors: MapFloor[]
   labels: MapLabel[]
 }
 
@@ -44,6 +73,26 @@ export const MAP_ART: Record<string, MapArt> = {
     bounds: [[698, -307], [-372, 237]],
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/Customs.svg",
+    baseGroup: "Ground_Level",
+    floors: [
+      { name: "2nd Floor", group: "Second_Floor", extents: [
+        { height: [2.7, 6.5], boxes: [[243, 190, 165, 125], [116, -83, 72, -170], [356, -30, 341, -84], [334, -52, 321, -59], [589, 10, 577, -1], [580, -104, 532, -134], [625, -120, 599, -139]] },
+        { height: [5.7, 1000], boxes: [[580, -104, 532, -134], [-199, -90, -223, -131], [239, 3, 169, -160], [336, -56, 316, -95], [584, -46, 556, -92], [93, 0, 65, -22]] },
+        { height: [14, 15], boxes: [[497, -44, 450, -90]] },
+        { height: [3.9, 7.6], boxes: [[73, 57, 22, -38]] },
+        { height: [4.4, 6.5], boxes: [[119, -57, 100, -42]] },
+        { height: [4.6, 7.9], boxes: [[279, -79, 246, -1.4]] },
+      ] },
+      { name: "3rd Floor", group: "Third_Floor", extents: [
+        { height: [5.7, 1000], boxes: [[243, 190, 165, 125]] },
+        { height: [7.7, 11.3], boxes: [[73, -73, 22, -38]] },
+        { height: [6.7, 11.6], boxes: [[126, -64, 88, -35]] },
+        { height: [8, 11.1], boxes: [[279, -79, 246, -1.4]] },
+      ] },
+      { name: "Underground", group: "Underground_Level", extents: [
+        { height: [-1000, 0.5], boxes: [[635, -137, 620, -125], [473, -122, 458, -110], [314, -173, 308, -184], [349, -88, 323, -32], [219, -158, 193, -137], [122, -61, 88, -40]] },
+      ] },
+    ],
     labels: [
       { x: -215, z: -119, text: "Big Red" },
       { x: 200, z: 150, text: "Dorms" },
@@ -75,6 +124,18 @@ export const MAP_ART: Record<string, MapArt> = {
     bounds: [[77, -64.5], [-65.5, 67.4]],
     rotation: 90,
     svg: "https://assets.tarkov.dev/maps/svg/Factory.svg",
+    baseGroup: "Ground_Floor",
+    floors: [
+      { name: "2nd Floor", group: "Second_Floor", extents: [
+        { height: [3, 6], boxes: [] },
+      ] },
+      { name: "3rd Floor", group: "Third_Floor", extents: [
+        { height: [6, 10000], boxes: [] },
+      ] },
+      { name: "Tunnels", group: "Basement", extents: [
+        { height: [-10000, -1], boxes: [] },
+      ] },
+    ],
     labels: [
       { x: 21, z: 39, text: "Office Building" },
       { x: 15.5, z: 39, text: "Main Office" },
@@ -109,6 +170,19 @@ export const MAP_ART: Record<string, MapArt> = {
     bounds: [[249, -124], [-99, 364]],
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/GroundZero.svg",
+    baseGroup: "Ground_Level",
+    floors: [
+      { name: "2nd Floor", group: "Second_Floor", extents: [
+        { height: [28, 32.3], boxes: [] },
+        { height: [26, 31], boxes: [[98, 216, 91, 228]] },
+      ] },
+      { name: "3rd Floor", group: "Third_Floor", extents: [
+        { height: [32.3, 1000], boxes: [] },
+      ] },
+      { name: "Garage", group: "Underground_Level", extents: [
+        { height: [-1000, 21], boxes: [[117, -100, 43, 190], [143, 49, 117, 80]] },
+      ] },
+    ],
     labels: [
       { x: -50, z: 0, text: "TerraGroup" },
       { x: 150, z: 1, text: "Skyside" },
@@ -129,6 +203,15 @@ export const MAP_ART: Record<string, MapArt> = {
     bounds: [[598, -442], [-433, 426]],
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/Interchange.svg",
+    baseGroup: "Ground_Level",
+    floors: [
+      { name: "2nd Floor", group: "First_Floor", extents: [
+        { height: [25, 34], boxes: [[120, 218, -222, -327]] },
+      ] },
+      { name: "3rd Floor", group: "Second_Floor", extents: [
+        { height: [34, 1000], boxes: [[120, 218, -222, -327]] },
+      ] },
+    ],
     labels: [
       { x: -186.4, z: -318.7, text: "Power Station" },
       { x: 155, z: -253, text: "Go Kart" },
@@ -213,6 +296,9 @@ export const MAP_ART: Record<string, MapArt> = {
     bounds: [[515, -998], [-545, 725]],
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/Lighthouse.svg",
+    baseGroup: "Ground_Level",
+    floors: [
+    ],
     labels: [
       { x: -30, z: -882, text: "Train Yard" },
       { x: -120, z: -841, text: "Drug Lab" },
@@ -242,6 +328,16 @@ export const MAP_ART: Record<string, MapArt> = {
     bounds: [[289, -293], [-303, 244]],
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/Reserve.svg",
+    baseGroup: "Ground_Level",
+    floors: [
+      { name: "Bunkers", group: "Bunkers", extents: [
+        { height: [-10000, -7.27], boxes: [[128, -208, 18, -33], [-46, -42, -176, 127]] },
+        { height: [-10000, -12], boxes: [[-40, 124, -124, 189]] },
+        { height: [-10000, 18], boxes: [[23, 173, -65, 189]] },
+        { height: [-7.27, -3.2], boxes: [[74, -196, 19, -149]] },
+        { height: [-11, -4.6], boxes: [[-246, -79, -274, -53], [238, -26, 126, 45]] },
+      ] },
+    ],
     labels: [
       { x: 28, z: -102, text: "K Buildings" },
       { x: -25, z: 180, text: "White Queen" },
@@ -276,6 +372,18 @@ export const MAP_ART: Record<string, MapArt> = {
     bounds: [[504, -415], [-1056, 618]],
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/Shoreline.svg",
+    baseGroup: "Ground_Level",
+    floors: [
+      { name: "2nd Floor", group: "Second_Floor", extents: [
+        { height: [-1, 2], boxes: [] },
+      ] },
+      { name: "3rd Floor", group: "Third_Floor", extents: [
+        { height: [2, 1000], boxes: [] },
+      ] },
+      { name: "Underground", group: "Underground_Level", extents: [
+        { height: [-1000, -5], boxes: [[-137, -68, -237, -104], [-234, -134, -268, -163]] },
+      ] },
+    ],
     labels: [
       { x: -258.2, z: -71.2, text: "Resort" },
       { x: -215.8, z: 178.4, text: "Power Station" },
@@ -303,6 +411,24 @@ export const MAP_ART: Record<string, MapArt> = {
     bounds: [[323, -295], [-280, 532]],
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/StreetsOfTarkov.svg",
+    baseGroup: "Ground_Level",
+    floors: [
+      { name: "2nd Floor", group: "Second_Floor", extents: [
+        { height: [10, 15], boxes: [] },
+      ] },
+      { name: "3rd Floor", group: "Third_Floor", extents: [
+        { height: [15, 20], boxes: [] },
+      ] },
+      { name: "4th Floor", group: "Fourth_Floor", extents: [
+        { height: [20, 25], boxes: [] },
+      ] },
+      { name: "5th Floor", group: "Fifth_Floor", extents: [
+        { height: [25, 10000], boxes: [] },
+      ] },
+      { name: "Underground", group: "Underground_Level", extents: [
+        { height: [-10000, -6], boxes: [] },
+      ] },
+    ],
     labels: [
       { x: 9, z: 308, text: "Primorsky Ave." },
       { x: 9, z: 104, text: "Primorsky Ave." },
@@ -356,6 +482,9 @@ export const MAP_ART: Record<string, MapArt> = {
     bounds: [[-80, -477], [-287, -193]],
     rotation: 270,
     svg: null,
+    baseGroup: null,
+    floors: [
+    ],
     labels: [
       { x: -230, z: -400, text: "Parking" },
       { x: -246, z: -379, text: "Vestibules #1" },
@@ -394,6 +523,9 @@ export const MAP_ART: Record<string, MapArt> = {
     bounds: [[-52, -37], [53, 76]],
     rotation: 270,
     svg: null,
+    baseGroup: null,
+    floors: [
+    ],
     labels: [
     ],
   },
@@ -401,6 +533,9 @@ export const MAP_ART: Record<string, MapArt> = {
     bounds: [[646, -914], [-761, 442]],
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/Woods.svg",
+    baseGroup: "Ground_Level",
+    floors: [
+    ],
     labels: [
       { x: 10, z: -3, text: "Sawmill" },
       { x: -485, z: -390, text: "Scav Town" },

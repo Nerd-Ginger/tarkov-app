@@ -810,6 +810,7 @@ export default function App() {
               onChange={setFilters}
               allMaps={allMaps}
               allTraders={allTraders}
+              hideMapRow
             />
             <MapView
               quests={filteredQuests}

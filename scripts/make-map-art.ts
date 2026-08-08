@@ -27,11 +27,20 @@ const WANTED = [
   'woods',
 ]
 
+interface UpstreamLayer {
+  name: string
+  svgLayer?: string
+  show?: boolean
+  extents?: { height: [number, number]; bounds?: [[number, number], [number, number], string?][] }[]
+}
+
 interface UpstreamMap {
   key: string
   bounds?: [[number, number], [number, number]]
   coordinateRotation?: number
   svgPath?: string
+  svgLayer?: string
+  layers?: UpstreamLayer[]
   tilePath?: string
   labels?: { position: [number, number]; text: string }[]
 }
@@ -54,11 +63,31 @@ const entries = [...picked.entries()]
     const labels = (m.labels ?? [])
       .map((l) => `      { x: ${l.position[0]}, z: ${l.position[1]}, text: ${q(l.text)} },`)
       .join('\n')
+    // Only floors that name an SVG group are switchable — the others (Reserve's
+    // numbered floors, for instance) have no artwork to swap to.
+    const floors = (m.layers ?? [])
+      .filter((l) => l.svgLayer)
+      .map((l) => {
+        const ext = (l.extents ?? [])
+          .map((e) => {
+            const boxes = (e.bounds ?? [])
+              .map((b) => `[${b[0][0]}, ${b[0][1]}, ${b[1][0]}, ${b[1][1]}]`)
+              .join(', ')
+            return `        { height: [${e.height[0]}, ${e.height[1]}], boxes: [${boxes}] },`
+          })
+          .join('\n')
+        return `      { name: ${q(l.name)}, group: ${q(l.svgLayer!)}, extents: [\n${ext}\n      ] },`
+      })
+      .join('\n')
     return [
       `  ${q(key)}: {`,
       `    bounds: [[${m.bounds[0][0]}, ${m.bounds[0][1]}], [${m.bounds[1][0]}, ${m.bounds[1][1]}]],`,
       `    rotation: ${m.coordinateRotation ?? 0},`,
       `    svg: ${m.svgPath ? q(m.svgPath) : 'null'},`,
+      `    baseGroup: ${m.svgLayer ? q(m.svgLayer) : 'null'},`,
+      `    floors: [`,
+      floors,
+      `    ],`,
       `    labels: [`,
       labels,
       `    ],`,
@@ -99,6 +128,28 @@ export interface MapLabel {
   text: string
 }
 
+/**
+ * A height band plus the building footprints it applies within.
+ *
+ * Height alone is not enough: on Customs anything above y=5.7 would count as
+ * second floor, which swept 82 outdoor objectives onto the wrong storey. An
+ * objective belongs to a floor only if it is inside one of these boxes AND
+ * within the height band.
+ */
+export interface MapExtent {
+  height: [number, number]
+  /** [x1, z1, x2, z2] corners; empty means the band applies map-wide. */
+  boxes: [number, number, number, number][]
+}
+
+/** An alternate floor: an SVG group to swap in, and where it applies. */
+export interface MapFloor {
+  name: string
+  /** id of the <g> inside the SVG. */
+  group: string
+  extents: MapExtent[]
+}
+
 export interface MapArt {
   /** [[maxX, minZ], [minX, maxZ]] in world units. */
   bounds: [[number, number], [number, number]]
@@ -106,6 +157,13 @@ export interface MapArt {
   rotation: number
   /** Null when the map has no SVG published. */
   svg: string | null
+  /**
+   * The SVG group shown by default. Every other floor group is hidden — the
+   * artwork stacks all levels in one file, so without this Factory renders its
+   * basement over its ground floor.
+   */
+  baseGroup: string | null
+  floors: MapFloor[]
   labels: MapLabel[]
 }
 

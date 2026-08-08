@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MapArt } from '../data/mapArt'
+import { useMapSvg } from '../hooks/useMapSvg'
 
 /**
  * A pan/zoom SVG viewport for one map's artwork, with markers plotted in raw
@@ -38,6 +39,8 @@ interface Props {
   markers: CanvasMarker[]
   showLabels: boolean
   selectedIds: string[]
+  /** SVG group id of the floor to show; null means the map's default. */
+  activeGroup: string | null
   onMarkerClick: (ids: string[]) => void
 }
 
@@ -58,7 +61,38 @@ const CLUSTER_PX = 16
 const MIN_ZOOM = 1
 const MAX_ZOOM = 12
 
-export function MapCanvas({ art, markers, showLabels, selectedIds, onMarkerClick }: Props) {
+export function MapCanvas({
+  art,
+  markers,
+  showLabels,
+  selectedIds,
+  activeGroup,
+  onMarkerClick,
+}: Props) {
+  const { svg, loading, failed } = useMapSvg(art.svg)
+  const artRef = useRef<SVGGElement | null>(null)
+
+  /**
+   * Show one floor at a time.
+   *
+   * The artwork carries every level as a sibling group, so all of them draw on
+   * top of each other unless the inactive ones are hidden. Groups that aren't
+   * floors — walls, obstacles, the building outline — are left alone, since
+   * they're shared scenery rather than alternatives.
+   */
+  useEffect(() => {
+    const host = artRef.current
+    if (!host) return
+    const floorGroups = [art.baseGroup, ...art.floors.map((f) => f.group)].filter(
+      (g): g is string => !!g,
+    )
+    if (floorGroups.length === 0) return
+    const wanted = activeGroup ?? art.baseGroup
+    for (const id of floorGroups) {
+      const el = host.querySelector(`#${CSS.escape(id)}`) as SVGElement | null
+      if (el) el.style.display = id === wanted ? '' : 'none'
+    }
+  }, [svg, art.baseGroup, art.floors, activeGroup])
   const [[x0, z0], [x1, z1]] = art.bounds
   const minX = Math.min(x0, x1)
   const minZ = Math.min(z0, z1)
@@ -169,8 +203,8 @@ export function MapCanvas({ art, markers, showLabels, selectedIds, onMarkerClick
    */
   const unitsPerPx = renderedPx > 0 ? viewW / renderedPx : 1
 
-  const MARKER_PX = 6
-  const SELECTED_PX = 9
+  const MARKER_PX = 8
+  const SELECTED_PX = 12
   const LABEL_PX = 12
 
   const r = MARKER_PX * unitsPerPx
@@ -243,14 +277,14 @@ export function MapCanvas({ art, markers, showLabels, selectedIds, onMarkerClick
         role="img"
       >
         <g transform={`rotate(${art.rotation} ${cx} ${cz})`}>
-          {art.svg && (
-            <image
-              href={art.svg}
-              x={minX}
-              y={minZ}
-              width={width}
-              height={height}
-              preserveAspectRatio="none"
+          {svg && (
+            <g
+              ref={artRef}
+              className="map-art"
+              // the SVG is drawn at world dimensions but with a 0,0 origin, so
+              // this just slides it onto the world bounds
+              transform={`translate(${minX} ${minZ}) scale(${width / svg.viewBox.w} ${height / svg.viewBox.h}) translate(${-svg.viewBox.x} ${-svg.viewBox.y})`}
+              dangerouslySetInnerHTML={{ __html: svg.inner }}
             />
           )}
 
@@ -286,7 +320,7 @@ export function MapCanvas({ art, markers, showLabels, selectedIds, onMarkerClick
           {clusters.map((c) => {
             const sel = c.ids.some((id) => selectedIds.includes(id))
             return (
-              <g key={c.ids[0]} className="map-marker-group" onClick={() => onMarkerClick(c.ids)}>
+              <g key={c.ids[0]} className={`map-marker-group ${c.dimmed ? 'is-dim' : ''}`} onClick={() => onMarkerClick(c.ids)}>
                 <circle
                   className={`map-marker tone-${c.tone.replace(/[^a-zA-Z]/g, '')} ${c.dimmed ? 'dim' : ''} ${c.finished ? 'finished' : ''} ${sel ? 'sel' : ''}`}
                   cx={c.x}
@@ -312,6 +346,12 @@ export function MapCanvas({ art, markers, showLabels, selectedIds, onMarkerClick
           })}
         </g>
       </svg>
+
+      {(loading || failed) && (
+        <div className="map-art-status">
+          {loading ? 'Loading map artwork…' : "Couldn't load the map artwork — markers are still placed correctly."}
+        </div>
+      )}
 
       <div className="map-zoom-controls">
         <button onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z * 1.4))} title="Zoom in">

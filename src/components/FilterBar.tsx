@@ -5,13 +5,18 @@ import { EMPTY_FILTERS } from '../filters'
 import type { Filters } from '../filters'
 
 interface Props {
+  /**
+   * Hide the map chip row. The Map view has its own single-select map picker,
+   * and two map controls on one screen fight each other.
+   */
+  hideMapRow?: boolean
   filters: Filters
   onChange: (f: Filters) => void
   allMaps: string[]
   allTraders: string[]
 }
 
-export function FilterBar({ filters, onChange, allMaps, allTraders }: Props) {
+export function FilterBar({ filters, onChange, allMaps, allTraders, hideMapRow }: Props) {
   const toggleMap = (name: string) => {
     const maps = new Set(filters.maps)
     if (maps.has(name)) maps.delete(name)
@@ -41,26 +46,28 @@ export function FilterBar({ filters, onChange, allMaps, allTraders }: Props) {
 
   return (
     <div className="filter-bar">
-      <div className="filter-row">
-        <span className="filter-label">Maps</span>
-        <div className="chip-group">
-          {allMaps.map((m) => (
-            <button
-              key={m}
-              className={[
-                'chip',
-                filters.maps.has(m) ? 'active' : '',
-                isPseudoMap(m) ? 'pseudo' : '',
-                EVENT_MAPS.has(m) ? 'event' : '',
-              ].join(' ')}
-              onClick={() => toggleMap(m)}
-            >
-              {m}
-              {EVENT_MAPS.has(m) && <span className="event-tag">event</span>}
-            </button>
-          ))}
+      {!hideMapRow && (
+        <div className="filter-row">
+          <span className="filter-label">Maps</span>
+          <div className="chip-group">
+            {allMaps.map((m) => (
+              <button
+                key={m}
+                className={[
+                  'chip',
+                  filters.maps.has(m) ? 'active' : '',
+                  isPseudoMap(m) ? 'pseudo' : '',
+                  EVENT_MAPS.has(m) ? 'event' : '',
+                ].join(' ')}
+                onClick={() => toggleMap(m)}
+              >
+                {m}
+                {EVENT_MAPS.has(m) && <span className="event-tag">event</span>}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="filter-row">
         <span className="filter-label">Objectives</span>
