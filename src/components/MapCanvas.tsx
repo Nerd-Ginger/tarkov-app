@@ -346,7 +346,7 @@ export function MapCanvas({
         onPointerLeave={endDrag}
         role="img"
       >
-        <g transform={`rotate(${art.rotation} ${cx} ${cz})`}>
+        <g transform={art.rotation === 180 ? `translate(${cx} ${cz}) scale(-1 1) translate(${-cx} ${-cz})` : `rotate(${art.rotation} ${cx} ${cz})`}>
           {useTiles && tileUrl && (
             <MapTiles
               art={art}
@@ -378,7 +378,7 @@ export function MapCanvas({
                 y={l.z}
                 fontSize={labelSize}
                 // counter-rotate so text stays upright whatever the map does
-                transform={`rotate(${-art.rotation} ${l.x} ${l.z})`}
+                transform={art.rotation === 180 ? `translate(${l.x} ${l.z}) scale(-1 1) translate(${-l.x} ${-l.z})` : `rotate(${-art.rotation} ${l.x} ${l.z})`}
               >
                 {l.text}
               </text>
@@ -416,7 +416,7 @@ export function MapCanvas({
                     y={c.z}
                     fontSize={LABEL_PX * 0.8 * unitsPerPx}
                     dy={LABEL_PX * 0.28 * unitsPerPx}
-                    transform={`rotate(${-art.rotation} ${c.x} ${c.z})`}
+                    transform={art.rotation === 180 ? `translate(${c.x} ${c.z}) scale(-1 1) translate(${-c.x} ${-c.z})` : `rotate(${-art.rotation} ${c.x} ${c.z})`}
                   >
                     {c.count}
                   </text>
