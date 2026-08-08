@@ -1,7 +1,7 @@
 {
   "name": "tarkov-quest-tracker",
   "private": true,
-  "version": "7.3.0",
+  "version": "8.0.0",
   "author": "Nerd_Ginger (https://github.com/Nerd-Ginger)",
   "homepage": "https://github.com/Nerd-Ginger/tarkov-app",
   "type": "module",
@@ -10,7 +10,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "deploy": "wrangler pages deploy dist --project-name=tarkov-quest-tracker",
-    "snapshot": "node --experimental-strip-types scripts/make-snapshot.ts"
+    "snapshot": "node --experimental-strip-types scripts/make-snapshot.ts",
+    "mapart": "node --experimental-strip-types scripts/make-map-art.ts"
   },
   "dependencies": {
     "react": "^19.1.0",

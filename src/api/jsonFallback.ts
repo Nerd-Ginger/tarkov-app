@@ -6,6 +6,7 @@ import type {
   RawHideoutStation,
   RawMap,
   RawObjective,
+  RawPoint,
   RawStim,
   RawStimEffect,
   RawTask,
@@ -112,6 +113,10 @@ interface JsonObjective {
   count?: number | null
   items?: string[] | null
   foundInRaid?: boolean | null
+  /** Zone with a position and, usually, an outline polygon. Map is an id. */
+  zones?: { map: string; position: RawPoint; outline?: RawPoint[] | null }[] | null
+  /** Exact spawn points for quest items. Map is an id. */
+  possibleLocations?: { map: string; positions?: RawPoint[] | null }[] | null
 }
 
 interface JsonTask {
@@ -191,6 +196,15 @@ interface JsonCraft {
   duration: number
   requiredItems?: JsonTradeItem[] | null
   productItem?: JsonTradeItem | null
+}
+
+/**
+ * Round a world coordinate to 1dp. Positions are metres in game space, so a
+ * tenth of a metre is far below what's visible on a map rendered at any zoom —
+ * and full float precision would roughly double what this adds to the snapshot.
+ */
+function pt(p: RawPoint): RawPoint {
+  return { x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10, z: Math.round(p.z * 10) / 10 }
 }
 
 /** Endpoints are keyed by id; a few are arrays. Normalize both to an array. */
@@ -382,6 +396,18 @@ export async function tasksFromJson(mode: GameMode = 'pve'): Promise<JsonTaskDat
         // GraphQL exposes a single item; JSON lists every acceptable one
         item: o.items?.[0] ? itemRef(o.items[0]) : null,
         count: o.count ?? null,
+        // Trimmed on the way in: the API also gives each zone a `size` box we
+        // don't render, and full float precision we don't need. Everything here
+        // is cached and bundled into the snapshot, so it's worth being frugal.
+        zones: (o.zones ?? []).map((z) => ({
+          map: z.map,
+          position: pt(z.position),
+          outline: (z.outline ?? []).map(pt),
+        })),
+        possibleLocations: (o.possibleLocations ?? []).map((l) => ({
+          map: l.map,
+          positions: (l.positions ?? []).map(pt),
+        })),
       }),
     ),
     finishRewards: {
@@ -449,6 +475,8 @@ export async function tasksFromJson(mode: GameMode = 'pve'): Promise<JsonTaskDat
   }))
 
   const maps: RawMap[] = values<JsonMap>(mapsRaw, 'maps').map((m) => ({
+    // the id is what objective zones reference; display names are aliased
+    id: m.id,
     name: mEn(`${m.id} Name`),
     normalizedName: m.normalizedName ?? '',
     locks: (m.locks ?? []).map((l) => ({

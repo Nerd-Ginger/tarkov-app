@@ -19,6 +19,8 @@ export interface Filters {
   hideBlocked: boolean
   /** When false (default), Arena questline quests are hidden entirely. */
   showArena: boolean
+  /** Show only quests marked active. Off = everything that passes the other filters. */
+  activeOnly: boolean
   level: string
   search: string
 }
@@ -34,6 +36,7 @@ export const EMPTY_FILTERS: Filters = {
   // Quests has always excluded them; this makes the list agree.
   hideBlocked: true,
   showArena: false,
+  activeOnly: false,
   level: '',
   search: '',
 }

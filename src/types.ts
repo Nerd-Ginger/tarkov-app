@@ -21,12 +21,34 @@ export interface ItemRef {
   shortName: string
 }
 
+/**
+ * Where on a map an objective happens, in raw game-world coordinates.
+ *
+ * `x`/`z` are the ground plane and `y` is height — the map view plots x/z
+ * directly against the map's world-space bounds, and uses y only to pick a
+ * floor on multi-level maps. `outline` is the zone polygon when the API gives
+ * one (an area to plant in, rather than a point to stand on).
+ */
+export interface ObjectiveLocation {
+  /** Map id, not display name — the only stable key across aliased maps. */
+  mapId: string
+  x: number
+  y: number
+  z: number
+  /** Zone polygon in the same world space. Empty for point locations. */
+  outline: { x: number; z: number }[]
+}
+
 export interface QuestObjective {
   /** Stable objective id (from the API) — the key for tracked progress. */
   id: string
   description: string
   category: ObjectiveCategory
+  /** Raw API type ('visit', 'plantItem', 'mark', …). `category` is the coarse bucket. */
+  type: string
   maps: string[]
+  /** Empty for the ~60% of objectives the API gives no position for. */
+  locations: ObjectiveLocation[]
   optional: boolean
   /** Item + count for hand-in/find objectives (giveItem, findItem, plantItem, sellItem). */
   item: ItemRef | null
@@ -123,6 +145,25 @@ export interface RawObjective {
   /** Present only on item objectives. */
   item?: ItemRef | null
   count?: number | null
+  /**
+   * Positional data. JSON-only — neither field is requested from GraphQL, so a
+   * GraphQL-sourced load has no map positions at all. See normalize.ts.
+   */
+  zones?: RawZone[] | null
+  possibleLocations?: { map: string; positions: RawPoint[] }[] | null
+}
+
+export interface RawPoint {
+  x: number
+  y: number
+  z: number
+}
+
+export interface RawZone {
+  /** Map id. */
+  map: string
+  position: RawPoint
+  outline?: RawPoint[] | null
 }
 
 export interface RawTaskRequirement {
@@ -462,6 +503,13 @@ export interface RawLock {
 }
 
 export interface RawMap {
+  /**
+   * Map id. Objective zones reference maps by id, and display names are aliased
+   * many-to-one ('Night Factory' → 'Factory'), so this is the only key that can
+   * bridge the two. Optional because caches written before the map view existed
+   * don't carry it.
+   */
+  id?: string
   name: string
   normalizedName: string
   locks: RawLock[] | null

@@ -35,6 +35,7 @@ export function FilterBar({ filters, onChange, allMaps, allTraders }: Props) {
     // compared against the default, which is now on — the deviation is turning it off
     filters.hideBlocked !== EMPTY_FILTERS.hideBlocked ||
     filters.showArena ||
+    filters.activeOnly ||
     filters.level !== '' ||
     filters.search !== ''
 
@@ -128,6 +129,17 @@ export function FilterBar({ filters, onChange, allMaps, allTraders }: Props) {
             onChange={(e) => onChange({ ...filters, hideBlocked: e.target.checked })}
           />
           Hide blocked
+        </label>
+        <label
+          className="check-label active-only-toggle"
+          title="Show only the quests you've marked active — what you're actually running right now."
+        >
+          <input
+            type="checkbox"
+            checked={filters.activeOnly}
+            onChange={(e) => onChange({ ...filters, activeOnly: e.target.checked })}
+          />
+          ▶ Active only
         </label>
         <label
           className="check-label arena-toggle"

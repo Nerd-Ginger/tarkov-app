@@ -82,6 +82,8 @@ export function useQuestData(mode: GameMode = 'pve') {
     barters,
     crafts,
     keys,
+    // raw maps too: the map view needs ids/slugs that normalizeKeys drops
+    rawMaps: cache?.maps ?? [],
     stims,
     status,
     offline,

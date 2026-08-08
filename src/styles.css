@@ -2719,3 +2719,169 @@ tr.covered .item-name {
   color: var(--text-dim);
   font-style: italic;
 }
+
+/* ---- quest location map ---- */
+
+.map-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.map-canvas-wrap {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0d0c0a;
+}
+
+.map-canvas {
+  display: block;
+  width: 100%;
+  /* tall enough to be useful on a portrait monitor without pushing the
+     selection readout below the fold on a laptop */
+  height: min(72vh, 820px);
+  cursor: grab;
+  touch-action: none;
+}
+
+.map-canvas.dragging {
+  cursor: grabbing;
+}
+
+.map-canvas image {
+  /* the artwork is drawn for a light page; dim it so markers read on top */
+  filter: brightness(0.82) saturate(0.9);
+}
+
+.map-label {
+  fill: var(--text-dim);
+  paint-order: stroke;
+  stroke: #0d0c0a;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  text-anchor: middle;
+  pointer-events: none;
+  font-weight: 600;
+}
+
+.map-marker {
+  fill: var(--accent);
+  stroke: #0d0c0a;
+  cursor: pointer;
+}
+
+.map-marker:hover {
+  fill: var(--accent-strong);
+}
+
+.map-marker.dim {
+  opacity: 0.3;
+}
+
+.map-marker.sel {
+  fill: var(--accent-strong);
+  stroke: var(--text);
+}
+
+.map-zone {
+  fill: var(--accent);
+  fill-opacity: 0.12;
+  stroke: var(--accent);
+  stroke-opacity: 0.55;
+  cursor: pointer;
+}
+
+.map-zone.dim {
+  opacity: 0.25;
+}
+
+.map-zone.sel {
+  fill-opacity: 0.28;
+  stroke: var(--accent-strong);
+}
+
+/* marker colour follows the objective category, matching the chips */
+.map-marker.tone-Kill, .map-zone.tone-Kill { fill: var(--cat-kill); stroke: var(--cat-kill); }
+.map-marker.tone-PlantMark, .map-zone.tone-PlantMark { fill: var(--cat-plant); stroke: var(--cat-plant); }
+.map-marker.tone-Collect, .map-zone.tone-Collect { fill: var(--cat-collect); stroke: var(--cat-collect); }
+.map-marker.tone-Visit, .map-zone.tone-Visit { fill: var(--cat-visit); stroke: var(--cat-visit); }
+.map-marker.tone-Extract, .map-zone.tone-Extract { fill: var(--cat-extract); stroke: var(--cat-extract); }
+.map-marker.tone-Build, .map-zone.tone-Build { fill: var(--cat-build); stroke: var(--cat-build); }
+.map-marker.tone-Other, .map-zone.tone-Other { fill: var(--cat-other); stroke: var(--cat-other); }
+.map-marker { stroke: #0d0c0a; }
+
+.map-zoom-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.map-zoom-controls button {
+  width: 30px;
+  height: 30px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.map-zoom-controls button:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.map-selection {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-2);
+}
+
+.map-selection-obj {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.map-selection-meta {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.map-legend-note {
+  margin: 0;
+}
+
+.chip-count {
+  opacity: 0.65;
+  font-size: 11px;
+}
+
+.active-only-toggle.on,
+.active-only-toggle:has(input:checked) {
+  border-color: var(--cat-extract);
+  color: var(--cat-extract);
+}
+
+/* finished objectives read as hollow, so they don't look like merely
+   un-highlighted ones when Active-only highlighting is also in play */
+.map-marker.finished {
+  fill: none;
+  stroke-width: 2px;
+}
+
+.map-zone.finished {
+  fill-opacity: 0.04;
+  stroke-dasharray: 6 4;
+}

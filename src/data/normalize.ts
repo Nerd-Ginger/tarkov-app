@@ -1,5 +1,5 @@
 import { ANY_MAP, ARENA, MAP_UNKNOWN, NO_RAID } from '../types'
-import type { QuestFaction, ReqStatus } from '../types'
+import type { ObjectiveLocation, QuestFaction, RawObjective, ReqStatus } from '../types'
 
 const REQ_STATUSES: ReqStatus[] = ['complete', 'active', 'failed']
 function isReqStatus(s: string): s is ReqStatus {
@@ -182,6 +182,39 @@ function seriesBase(name: string): string | null {
   return i === -1 ? null : name.slice(0, i).trim()
 }
 
+/**
+ * Flatten the two positional shapes the API uses into one list.
+ *
+ * `zones` are areas — "plant this in the sawmill office" — and carry an outline
+ * polygon. `possibleLocations` are the discrete spots a quest item can spawn, so
+ * one objective can yield several points. Both key their map by **id**, not
+ * display name, which is what makes them usable: display names are aliased
+ * many-to-one ('Night Factory' → 'Factory'), so an id is the only way back to a
+ * specific map's artwork.
+ *
+ * Empty for the ~60% of objectives with no position — hand-ins, kills, crafts.
+ */
+function objectiveLocations(o: RawObjective): ObjectiveLocation[] {
+  const out: ObjectiveLocation[] = []
+  for (const z of o.zones ?? []) {
+    if (!z?.map || !z.position) continue
+    out.push({
+      mapId: z.map,
+      x: z.position.x,
+      y: z.position.y,
+      z: z.position.z,
+      outline: (z.outline ?? []).map((p) => ({ x: p.x, z: p.z })),
+    })
+  }
+  for (const l of o.possibleLocations ?? []) {
+    if (!l?.map) continue
+    for (const p of l.positions ?? []) {
+      out.push({ mapId: l.map, x: p.x, y: p.y, z: p.z, outline: [] })
+    }
+  }
+  return out
+}
+
 export function normalizeTasks(tasks: RawTask[]): Quest[] {
   // null slots appear when a per-task resolver fails server-side — skip them
   const quests = tasks.filter((t): t is RawTask => t != null).map((t) => {
@@ -189,7 +222,9 @@ export function normalizeTasks(tasks: RawTask[]): Quest[] {
       id: o.id,
       description: o.description,
       category: CATEGORY_BY_TYPE[o.type] ?? ('Other' as ObjectiveCategory),
+      type: o.type,
       maps: [...new Set((o.maps ?? []).map((m) => normalizeMapName(m.name)))],
+      locations: objectiveLocations(o),
       optional: o.optional,
       item: o.item ?? null,
       count: o.count ?? 0,
@@ -429,6 +464,44 @@ export function normalizeCrafts(crafts: RawCraft[]): Craft[] {
  * Flatten every map's locks into key→lock rows, merging map variants (Night
  * Factory → Factory, etc.) so a key's doors group under one map name.
  */
+/**
+ * Bridge between the two ways a map is identified.
+ *
+ * Objective locations reference maps by **id**; the filters, the maps table and
+ * every quest's `maps` array use the aliased **display name**; the vendored
+ * artwork config is keyed by **slug**. Only `RawMap` carries all three, so this
+ * is the single place they get joined.
+ *
+ * Aliased variants keep their own ids — 'Night Factory' and 'Factory' are two
+ * entries pointing at one display name and one slug — which is exactly what the
+ * map view wants: pick Factory, get objectives from both.
+ */
+export interface MapIdentity {
+  id: string
+  /** Aliased display name, matching Quest.maps and the map filter. */
+  name: string
+  /** tarkov.dev slug ('customs'), the key into the artwork config. */
+  slug: string
+}
+
+export function normalizeMapIdentities(maps: RawMap[]): MapIdentity[] {
+  const out: MapIdentity[] = []
+  // an alias points at another map's artwork, so resolve its slug from the map
+  // it aliases to rather than its own (Night Factory has no config of its own)
+  const slugByDisplay: Record<string, string> = {}
+  for (const m of maps) {
+    if (m.id && m.normalizedName && m.name === normalizeMapName(m.name)) {
+      slugByDisplay[m.name] = m.normalizedName
+    }
+  }
+  for (const m of maps) {
+    if (!m.id) continue
+    const name = normalizeMapName(m.name)
+    out.push({ id: m.id, name, slug: slugByDisplay[name] ?? m.normalizedName ?? '' })
+  }
+  return out
+}
+
 export function normalizeKeys(maps: RawMap[]): KeyLock[] {
   // Prefer the base map's slug for a display name (Factory, not Night Factory).
   const slugByDisplay: Record<string, string> = {}

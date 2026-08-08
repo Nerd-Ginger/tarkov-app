@@ -16,7 +16,7 @@ import type { JsonTaskData } from './jsonFallback'
 import { GRAPHQL_TIMEOUT_MS, describe } from './shared'
 
 const API_URL = 'https://api.tarkov.dev/graphql'
-const CACHE_KEY = 'tarkov.tasks.v15'
+const CACHE_KEY = 'tarkov.tasks.v16'
 export const CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000 // 12h
 
 /**

@@ -22,11 +22,12 @@ import { FilterBar } from './components/FilterBar'
 import { HideoutView } from './components/HideoutView'
 import { ItemsView } from './components/ItemsView'
 import { MapsSection } from './components/MapsSection'
+import { MapView } from './components/MapView'
 import { QuestModal } from './components/QuestModal'
 import { QuestTree } from './components/QuestTree'
 import { QuestsTable } from './components/QuestsTable'
 import { questHandInItems } from './data/items'
-import { EVENT_MAPS, isPseudoMap, mapSortKey, stationLevelKey, traderSortKey } from './data/normalize'
+import { EVENT_MAPS, isPseudoMap, mapSortKey, normalizeMapIdentities, stationLevelKey, traderSortKey } from './data/normalize'
 import { exportProgress, importProgress } from './data/progressFile'
 import { factionAllows } from './data/requirements'
 import { EMPTY_FILTERS, isBlocked, matchesAll } from './filters'
@@ -61,6 +62,7 @@ type View =
   | 'bosses'
   | 'ammo'
   | 'meds'
+  | 'map'
   | 'profile'
 const VIEW_KEY = 'tarkov.view.v1'
 const VIEWS: { id: View; label: string }[] = [
@@ -75,6 +77,7 @@ const VIEWS: { id: View; label: string }[] = [
   { id: 'bosses', label: 'Bosses' },
   { id: 'ammo', label: 'Ammo' },
   { id: 'meds', label: 'Meds' },
+  { id: 'map', label: 'Map' },
   { id: 'profile', label: 'Profile' },
 ]
 
@@ -89,6 +92,7 @@ const OTHER_VIEWS = new Set<string>([
   'bosses',
   'ammo',
   'meds',
+  'map',
   'profile',
 ])
 
@@ -113,7 +117,7 @@ function timeAgo(ts: number): string {
 export default function App() {
   const { mode: gameMode, setMode: setGameMode } = useGameMode()
   const {
-    quests, stations, ammo, barters, crafts, keys, stims, status, offline, fetchedAt,
+    quests, stations, ammo, barters, crafts, keys, stims, rawMaps, status, offline, fetchedAt,
     source: questSource, refresh,
   } = useQuestData(gameMode)
   const { done, toggle, replaceDone } = useDone()
@@ -195,6 +199,9 @@ export default function App() {
     () => ({ done, active, failed, profile }),
     [done, active, failed, profile],
   )
+
+  /** Map id → display name → artwork slug; the map view needs all three. */
+  const mapIdentities = useMemo(() => normalizeMapIdentities(rawMaps), [rawMaps])
 
   const questById = useMemo(() => new Map(quests.map((q) => [q.id, q])), [quests])
   const levelByKey = useMemo(() => new Map(stations.map((l) => [l.key, l])), [stations])
@@ -396,12 +403,17 @@ export default function App() {
     return [...s].sort((a, b) => traderSortKey(a) - traderSortKey(b))
   }, [visibleQuests])
 
+  // gateCtx is in the deps on purpose: it carries active/failed/profile, and
+  // without it toggling a quest active alone wouldn't re-filter. That was
+  // invisible until "active only" existed, because `done` almost always
+  // changed at the same time.
   const filteredQuests = useMemo(() => {
     let list = visibleQuests.filter((q) => matchesAll(q, filters, { progress, done }))
     if (filters.hideDone) list = list.filter((q) => !done.has(q.id))
     if (filters.hideBlocked) list = list.filter((q) => !isBlocked(q, gateCtx))
+    if (filters.activeOnly) list = list.filter((q) => active.has(q.id))
     return list
-  }, [visibleQuests, filters, done, progress])
+  }, [visibleQuests, filters, done, progress, gateCtx, active])
 
   const doneCount = useMemo(
     () => visibleQuests.filter((q) => done.has(q.id)).length,
@@ -781,6 +793,32 @@ export default function App() {
               done={done}
               traderResets={intel.traderResets}
               onOpen={openBarter}
+            />
+          </section>
+        )}
+
+        {view === 'map' && (
+          <section>
+            <h2>Map</h2>
+            <p className="legend">
+              Where your quest objectives actually are. Uses the same filters as the Quests view —
+              hide done, hide blocked, and <strong>Active only</strong> to see just what you're
+              running. Objectives you've already ticked off drop off the map.
+            </p>
+            <FilterBar
+              filters={filters}
+              onChange={setFilters}
+              allMaps={allMaps}
+              allTraders={allTraders}
+            />
+            <MapView
+              quests={filteredQuests}
+              mapIds={mapIdentities}
+              progress={progress}
+              done={done}
+              active={active}
+              hideDone={filters.hideDone}
+              onQuestClick={setDetailQuest}
             />
           </section>
         )}
