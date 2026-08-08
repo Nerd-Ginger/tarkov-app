@@ -88,9 +88,18 @@ export function MapCanvas({
     )
     if (floorGroups.length === 0) return
     const wanted = activeGroup ?? art.baseGroup
+    /**
+     * Some layers belong WITH the ground floor rather than instead of it.
+     * Interchange's mall interior is one, so hiding it left only the outdoor
+     * ring — with every label still drawn where it belongs, over a storey that
+     * wasn't being shown. That reads as "the labels are in the wrong place".
+     */
+    const alsoOn = new Set(
+      wanted === art.baseGroup ? art.floors.filter((f) => f.defaultOn).map((f) => f.group) : [],
+    )
     for (const id of floorGroups) {
       const el = host.querySelector(`#${CSS.escape(id)}`) as SVGElement | null
-      if (el) el.style.display = id === wanted ? '' : 'none'
+      if (el) el.style.display = id === wanted || alsoOn.has(id) ? '' : 'none'
     }
   }, [svg, art.baseGroup, art.floors, activeGroup])
   const [[x0, z0], [x1, z1]] = art.bounds
@@ -100,6 +109,13 @@ export function MapCanvas({
   const height = Math.abs(z1 - z0)
   const cx = minX + width / 2
   const cz = minZ + height / 2
+
+  // where the artwork sits in world space — usually the same box as the markers
+  const [[ax0, az0], [ax1, az1]] = art.svgBounds ?? art.bounds
+  const artX = Math.min(ax0, ax1)
+  const artZ = Math.min(az0, az1)
+  const artW = Math.abs(ax1 - ax0)
+  const artH = Math.abs(az1 - az0)
 
   // A rotated map is drawn into the same box, so a 90/270 turn needs the box to
   // be square or the corners clip. Padding to the longer side is the cheap fix.
@@ -298,9 +314,11 @@ export function MapCanvas({
             <g
               ref={artRef}
               className="map-art"
-              // the SVG is drawn at world dimensions but with a 0,0 origin, so
-              // this just slides it onto the world bounds
-              transform={`translate(${minX} ${minZ}) scale(${width / svg.viewBox.w} ${height / svg.viewBox.h}) translate(${-svg.viewBox.x} ${-svg.viewBox.y})`}
+              // Stretch the artwork onto the world rectangle it actually covers.
+              // That is usually `bounds`, but Reserve publishes a separate
+              // svgBounds spanning a taller slice of the world — drawing it
+              // across `bounds` slid the whole map against its own markers.
+              transform={`translate(${artX} ${artZ}) scale(${artW / svg.viewBox.w} ${artH / svg.viewBox.h}) translate(${-svg.viewBox.x} ${-svg.viewBox.y})`}
               dangerouslySetInnerHTML={{ __html: svg.inner }}
             />
           )}

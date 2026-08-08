@@ -39,6 +39,7 @@ interface UpstreamMap {
   bounds?: [[number, number], [number, number]]
   coordinateRotation?: number
   svgPath?: string
+  svgBounds?: [[number, number], [number, number]]
   svgLayer?: string
   layers?: UpstreamLayer[]
   tilePath?: string
@@ -76,7 +77,7 @@ const entries = [...picked.entries()]
             return `        { height: [${e.height[0]}, ${e.height[1]}], boxes: [${boxes}] },`
           })
           .join('\n')
-        return `      { name: ${q(l.name)}, group: ${q(l.svgLayer!)}, extents: [\n${ext}\n      ] },`
+        return `      { name: ${q(l.name)}, group: ${q(l.svgLayer!)}, defaultOn: ${l.show === true}, extents: [\n${ext}\n      ] },`
       })
       .join('\n')
     return [
@@ -84,6 +85,7 @@ const entries = [...picked.entries()]
       `    bounds: [[${m.bounds[0][0]}, ${m.bounds[0][1]}], [${m.bounds[1][0]}, ${m.bounds[1][1]}]],`,
       `    rotation: ${m.coordinateRotation ?? 0},`,
       `    svg: ${m.svgPath ? q(m.svgPath) : 'null'},`,
+      `    svgBounds: ${m.svgBounds ? `[[${m.svgBounds[0][0]}, ${m.svgBounds[0][1]}], [${m.svgBounds[1][0]}, ${m.svgBounds[1][1]}]]` : 'null'},`,
       `    baseGroup: ${m.svgLayer ? q(m.svgLayer) : 'null'},`,
       `    floors: [`,
       floors,
@@ -147,6 +149,12 @@ export interface MapFloor {
   name: string
   /** id of the <g> inside the SVG. */
   group: string
+  /**
+   * Drawn alongside the ground floor by default rather than instead of it.
+   * Interchange's mall interior is a layer, so hiding it leaves only the
+   * outdoor ring — and every label sits over a storey that isn't shown.
+   */
+  defaultOn: boolean
   extents: MapExtent[]
 }
 
@@ -157,6 +165,13 @@ export interface MapArt {
   rotation: number
   /** Null when the map has no SVG published. */
   svg: string | null
+  /**
+   * World rectangle the ARTWORK covers, when it differs from \`bounds\`.
+   * Reserve's SVG spans a taller slice of the world than its marker bounds do,
+   * so drawing the image across \`bounds\` shifts the whole map against the
+   * markers plotted on it. Null means the two are the same.
+   */
+  svgBounds: [[number, number], [number, number]] | null
   /**
    * The SVG group shown by default. Every other floor group is hidden — the
    * artwork stacks all levels in one file, so without this Factory renders its
