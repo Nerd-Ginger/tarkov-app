@@ -123,15 +123,30 @@ export function MapCanvas({
    * 43px blob on Factory and a 4px speck on Shoreline. Measuring lets us work
    * back from a target pixel size instead.
    */
-  const [renderedPx, setRenderedPx] = useState(0)
+  const wrapRef = useRef<HTMLDivElement | null>(null)
+  const [availPx, setAvailPx] = useState(0)
   useEffect(() => {
-    const el = svgRef.current
+    const el = wrapRef.current
     if (!el) return
-    const ro = new ResizeObserver(([e]) => setRenderedPx(e.contentRect.width))
+    const ro = new ResizeObserver(([e]) => setAvailPx(e.contentRect.width))
     ro.observe(el)
-    setRenderedPx(el.getBoundingClientRect().width)
+    setAvailPx(el.getBoundingClientRect().width)
     return () => ro.disconnect()
   }, [])
+
+  /**
+   * Size the canvas to the map's own proportions.
+   *
+   * Left to a fixed width and height, an SVG letterboxes: Ground Zero's box is
+   * 348x488 — portrait — inside a 1030x820 element, so it centred with a slab
+   * of dead space either side. Deriving both dimensions from the map's aspect
+   * means the frame always hugs the artwork.
+   */
+  const maxH = Math.min(typeof window === 'undefined' ? 820 : window.innerHeight * 0.72, 820)
+  const fit = availPx > 0 ? Math.min(availPx / boxW, maxH / boxH) : 0
+  const cssW = fit > 0 ? boxW * fit : 0
+  const cssH = fit > 0 ? boxH * fit : 0
+  const renderedPx = cssW
 
   // Reset the viewport when switching maps — keeping a Customs pan offset on
   // Streets would drop you somewhere arbitrary.
@@ -265,10 +280,11 @@ export function MapCanvas({
   }, [markers, unitsPerPx])
 
   return (
-    <div className="map-canvas-wrap">
+    <div className="map-canvas-wrap" ref={wrapRef}>
       <svg
         ref={svgRef}
         className={`map-canvas ${drag.current ? 'dragging' : ''}`}
+        style={cssW ? { width: cssW, height: cssH } : undefined}
         viewBox={`${viewX} ${viewZ} ${viewW} ${viewH}`}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

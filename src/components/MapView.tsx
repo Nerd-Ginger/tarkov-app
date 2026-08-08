@@ -39,6 +39,8 @@ interface Props {
 
 interface Placed {
   marker: CanvasMarker
+  /** Which objective this position belongs to; one objective can have several. */
+  objectiveId: string
   quest: Quest
   objectiveDescription: string
   /** World height, used to decide which floor this belongs to. */
@@ -116,6 +118,17 @@ export function MapView({ quests, mapIds, progress, done, active, hideDone, onQu
       const art = MAP_ART[slug]
       const placed: Placed[] = []
       const anywhere: Anywhere[] = []
+      /**
+       * Guards against the same objective appearing twice on one map.
+       *
+       * Aliased variants are separate map ids that we fold into one display
+       * name — Ground Zero and Ground Zero 21+, Factory and Night Factory — and
+       * the API repeats an objective's zone under each. Needle in a Haystack
+       * carries the same courtyard zone at (-15.4, 68.9) on both Ground Zero
+       * ids, which listed it twice at one spot.
+       */
+      const seen = new Set<string>()
+      const anywhereSeen = new Set<string>()
       for (const q of quests) {
         for (const o of q.objectives) {
           if (o.optional) continue
@@ -123,16 +136,25 @@ export function MapView({ quests, mapIds, progress, done, active, hideDone, onQu
           if (complete && hideDone) continue
           for (const [i, loc] of o.locations.entries()) {
             if (!ids.has(loc.mapId)) continue
+            const at = `${o.id}:${Math.round(loc.x)}:${Math.round(loc.z)}`
+            if (seen.has(at)) continue
+            seen.add(at)
             // A zone covering most of the map means "anywhere on this map" —
             // kill 15 Scavs on Factory. As a rectangle it says nothing, and a
             // dot at its centre is worse: it implies a spot to stand. These are
             // listed separately so the map stays about actual places.
             if (art && spansMap(loc, art)) {
-              anywhere.push({ quest: q, objectiveDescription: o.description })
+              // one row per objective, not per zone: Claustrophobia carries four
+              // overlapping map-wide kill zones for a single objective
+              if (!anywhereSeen.has(o.id)) {
+                anywhereSeen.add(o.id)
+                anywhere.push({ quest: q, objectiveDescription: o.description })
+              }
               continue
             }
             placed.push({
               quest: q,
+              objectiveId: o.id,
               objectiveDescription: o.description,
               y: loc.y,
               marker: {
@@ -213,7 +235,69 @@ export function MapView({ quests, mapIds, progress, done, active, hideDone, onQu
     return entry.placed.filter((p) => onFloor(p, def))
   }, [entry.placed, art, floors, activeFloor])
 
-  const selected = placed.filter((p) => selectedIds.includes(p.marker.id))
+  /**
+   * Spots worth building a raid around, ranked by how many DISTINCT quests they
+   * serve.
+   *
+   * Ranked on quests rather than objectives on purpose: five spawn points for
+   * one quest item is one errand, while three objectives from three different
+   * quests in one room is the thing worth walking to. Grouped in world units
+   * rather than screen pixels so the ranking doesn't reshuffle as you zoom.
+   */
+  const hotspots = useMemo(() => {
+    const RADIUS = 30
+    const taken = new Set<number>()
+    const out: { quests: string[]; entries: Placed[]; x: number; z: number; near: string | null }[] = []
+    for (let i = 0; i < placed.length; i++) {
+      if (taken.has(i)) continue
+      taken.add(i)
+      const group = [placed[i]]
+      for (let j = i + 1; j < placed.length; j++) {
+        if (taken.has(j)) continue
+        const dx = placed[i].marker.x - placed[j].marker.x
+        const dz = placed[i].marker.z - placed[j].marker.z
+        if (dx * dx + dz * dz <= RADIUS * RADIUS) {
+          taken.add(j)
+          group.push(placed[j])
+        }
+      }
+      const quests = [...new Set(group.map((g) => g.quest.name))]
+      if (quests.length < 2) continue
+      const x = group.reduce((s, g) => s + g.marker.x, 0) / group.length
+      const z = group.reduce((s, g) => s + g.marker.z, 0) / group.length
+      // name the spot after whichever landmark is closest, if any is close enough
+      let near: string | null = null
+      let best = Infinity
+      for (const l of art?.labels ?? []) {
+        const d = (l.x - x) ** 2 + (l.z - z) ** 2
+        if (d < best) {
+          best = d
+          near = l.text
+        }
+      }
+      out.push({ quests, entries: group, x, z, near: best <= 120 * 120 ? near : null })
+    }
+    return out.sort((a, b) => b.quests.length - a.quests.length).slice(0, 8)
+  }, [placed, art])
+
+  /**
+   * What the readout lists for the current selection, one row per objective.
+   *
+   * A cluster can hold several positions of the SAME objective — quest items
+   * list every possible spawn, so Luxurious Life's wine bottle has five spots
+   * in one store. Those are five real markers but one errand, so they collapse
+   * to a single row with a count.
+   */
+  const selected = useMemo(() => {
+    const byObjective = new Map<string, { row: Placed; spots: number }>()
+    for (const p of placed) {
+      if (!selectedIds.includes(p.marker.id)) continue
+      const hit = byObjective.get(p.objectiveId)
+      if (hit) hit.spots++
+      else byObjective.set(p.objectiveId, { row: p, spots: 1 })
+    }
+    return [...byObjective.values()]
+  }, [placed, selectedIds])
 
   if (mapNames.length === 0) {
     return (
@@ -305,14 +389,19 @@ export function MapView({ quests, mapIds, progress, done, active, hideDone, onQu
                 </span>
               )}
               <ul className="map-selection-list">
-                {selected.map((s) => (
-                  <li key={s.marker.id}>
-                    <button className="quest-link" onClick={() => onQuestClick(s.quest)}>
-                      {s.quest.name}
+                {selected.map(({ row, spots }) => (
+                  <li key={row.objectiveId}>
+                    <button className="quest-link" onClick={() => onQuestClick(row.quest)}>
+                      {row.quest.name}
                     </button>
-                    <span className="map-selection-obj">{s.objectiveDescription}</span>
+                    <span className="map-selection-obj">{row.objectiveDescription}</span>
+                    {spots > 1 && (
+                      <span className="map-selection-meta" title="This item can spawn in several places here">
+                        {spots} spots
+                      </span>
+                    )}
                     <span className="map-selection-meta">
-                      {s.quest.trader} · Lv {s.quest.minLevel}+
+                      {row.quest.trader} · Lv {row.quest.minLevel}+
                     </span>
                   </li>
                 ))}
@@ -320,6 +409,30 @@ export function MapView({ quests, mapIds, progress, done, active, hideDone, onQu
             </div>
           )}
         </>
+      )}
+
+      {hotspots.length > 0 && (
+        <div className="map-hotspots">
+          <span className="map-selection-count">
+            Best stops on {selectedMap}
+            {floors.length > 1 && activeFloor ? ` · ${activeFloor.name}` : ''}
+          </span>
+          <ol className="hotspot-list">
+            {hotspots.map((h) => (
+              <li key={`${h.x}-${h.z}`}>
+                <button
+                  className="hotspot-btn"
+                  onClick={() => setSelectedIds(h.entries.map((e) => e.marker.id))}
+                  title="Highlight these on the map"
+                >
+                  <span className="hotspot-count">{h.quests.length}</span>
+                  <span className="hotspot-where">{h.near ?? 'this spot'}</span>
+                </button>
+                <span className="hotspot-quests">{h.quests.join(' · ')}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
       )}
 
       {entry.anywhere.length > 0 && (
