@@ -65,19 +65,20 @@ type View =
   | 'map'
   | 'profile'
 const VIEW_KEY = 'tarkov.view.v1'
+/** Drives both navs — the sidebar list and the header tabs — so order lives here only. */
 const VIEWS: { id: View; label: string }[] = [
   { id: 'quests', label: 'Quests' },
   { id: 'best', label: 'Best Quests' },
+  { id: 'map', label: 'Map' },
+  { id: 'ammo', label: 'Ammo' },
+  { id: 'bosses', label: 'Bosses' },
   { id: 'items', label: 'Items' },
   { id: 'hideout', label: 'Hideout' },
   { id: 'barters', label: 'Barter' },
   { id: 'crafts', label: 'Crafts' },
   { id: 'firesale', label: 'Fire Sale' },
   { id: 'keys', label: 'Keys' },
-  { id: 'bosses', label: 'Bosses' },
-  { id: 'ammo', label: 'Ammo' },
   { id: 'meds', label: 'Meds' },
-  { id: 'map', label: 'Map' },
   { id: 'profile', label: 'Profile' },
 ]
 
