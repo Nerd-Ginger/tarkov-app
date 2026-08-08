@@ -2728,12 +2728,26 @@ tr.covered .item-name {
   gap: 10px;
 }
 
+/* The frame hugs the canvas rather than spanning the column.
+   The canvas is sized to the map's own aspect, so a full-width frame left a
+   slab of background either side of portrait maps (Ground Zero is 348x488) and
+   almost none beside landscape ones — which read as the view being broken on
+   some maps. Fitting the border to the artwork makes the varying shape look
+   deliberate instead. */
+.map-canvas-outer {
+  display: flex;
+  justify-content: center;
+}
+
 .map-canvas-wrap {
   position: relative;
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
   background: #0d0c0a;
+  /* shrink-to-fit: width comes from the svg inside */
+  width: fit-content;
+  max-width: 100%;
 }
 
 .map-canvas {

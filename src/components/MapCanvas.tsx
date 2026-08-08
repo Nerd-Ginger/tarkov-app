@@ -280,7 +280,8 @@ export function MapCanvas({
   }, [markers, unitsPerPx])
 
   return (
-    <div className="map-canvas-wrap" ref={wrapRef}>
+    <div className="map-canvas-outer" ref={wrapRef}>
+      <div className="map-canvas-wrap">
       <svg
         ref={svgRef}
         className={`map-canvas ${drag.current ? 'dragging' : ''}`}
@@ -385,6 +386,7 @@ export function MapCanvas({
         >
           ⟲
         </button>
+        </div>
       </div>
     </div>
   )
