@@ -2734,9 +2734,11 @@ tr.covered .item-name {
    almost none beside landscape ones — which read as the view being broken on
    some maps. Fitting the border to the artwork makes the varying shape look
    deliberate instead. */
+/* One frame, the same on every map, with the artwork covering it edge to edge.
+   Sizing the frame to each map's aspect made the viewport square on Factory,
+   portrait on Ground Zero and wide on Customs — jarring to flick between. */
 .map-canvas-outer {
-  display: flex;
-  justify-content: center;
+  display: block;
 }
 
 .map-canvas-wrap {
@@ -2745,9 +2747,6 @@ tr.covered .item-name {
   border-radius: 8px;
   overflow: hidden;
   background: #0d0c0a;
-  /* shrink-to-fit: width comes from the svg inside */
-  width: fit-content;
-  max-width: 100%;
 }
 
 .map-canvas {

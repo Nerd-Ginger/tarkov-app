@@ -58,7 +58,6 @@ interface Props {
  */
 const CLUSTER_PX = 16
 
-const MIN_ZOOM = 1
 const MAX_ZOOM = 12
 
 export function MapCanvas({
@@ -158,11 +157,24 @@ export function MapCanvas({
    * of dead space either side. Deriving both dimensions from the map's aspect
    * means the frame always hugs the artwork.
    */
-  const maxH = Math.min(typeof window === 'undefined' ? 820 : window.innerHeight * 0.72, 820)
-  const fit = availPx > 0 ? Math.min(availPx / boxW, maxH / boxH) : 0
-  const cssW = fit > 0 ? boxW * fit : 0
-  const cssH = fit > 0 ? boxH * fit : 0
-  const renderedPx = cssW
+  const cssW = availPx
+  const cssH = Math.min(typeof window === 'undefined' ? 820 : window.innerHeight * 0.72, 820)
+
+  /**
+   * Pixels per world unit, with the artwork COVERING the frame rather than
+   * fitting inside it.
+   *
+   * The frame is one fixed rectangle on every map. Sizing it to each map's own
+   * aspect instead made the viewport square on Factory, portrait on Ground Zero
+   * and wide on Customs, which is jarring to flick between. Covering means the
+   * map always meets the border on all four sides; the overflow on the long
+   * axis is reachable by panning, and zooming out past 1 backs off to the whole
+   * map when you want the overview.
+   */
+  const coverScale = cssW > 0 ? Math.max(cssW / boxW, cssH / boxH) : 0
+  const fitScale = cssW > 0 ? Math.min(cssW / boxW, cssH / boxH) : 0
+  /** Zoom 1 covers; this is how far out you may go to see the whole map. */
+  const minZoom = coverScale > 0 ? fitScale / coverScale : 1
 
   // Reset the viewport when switching maps — keeping a Customs pan offset on
   // Streets would drop you somewhere arbitrary.
@@ -171,21 +183,28 @@ export function MapCanvas({
     setPan({ x: 0, z: 0 })
   }, [art.svg, art.bounds])
 
-  const viewW = boxW / zoom
-  const viewH = boxH / zoom
-  const viewX = boxX + (boxW - viewW) / 2 + pan.x
-  const viewZ = boxZ + (boxH - viewH) / 2 + pan.z
+  /** World units visible in the frame right now — the long axis is cropped. */
+  const scale = coverScale * zoom
+  const seenW = scale > 0 ? cssW / scale : boxW
+  const seenH = scale > 0 ? cssH / scale : boxH
+
+  // viewBox is the visible window itself, so no preserveAspectRatio games are
+  // needed — the element and the window share one aspect by construction.
+  const viewX = boxX + (boxW - seenW) / 2 + pan.x
+  const viewZ = boxZ + (boxH - seenH) / 2 + pan.z
 
   const clampPan = useCallback(
     (p: { x: number; z: number }, z: number) => {
-      const slackX = (boxW - boxW / z) / 2
-      const slackZ = (boxH - boxH / z) / 2
+      const s = coverScale * z
+      // no slack on an axis that already shows everything
+      const slackX = s > 0 ? Math.max(0, (boxW - cssW / s) / 2) : 0
+      const slackZ = s > 0 ? Math.max(0, (boxH - cssH / s) / 2) : 0
       return {
         x: Math.max(-slackX, Math.min(slackX, p.x)),
         z: Math.max(-slackZ, Math.min(slackZ, p.z)),
       }
     },
-    [boxW, boxH],
+    [boxW, boxH, cssW, cssH, coverScale],
   )
 
   // Wheel is bound natively rather than via React's onWheel: React attaches
@@ -197,14 +216,14 @@ export function MapCanvas({
     const handler = (e: WheelEvent) => {
       e.preventDefault()
       setZoom((prev) => {
-        const next = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, prev * (e.deltaY < 0 ? 1.2 : 1 / 1.2)))
+        const next = Math.max(minZoom, Math.min(MAX_ZOOM, prev * (e.deltaY < 0 ? 1.2 : 1 / 1.2)))
         setPan((p) => clampPan(p, next))
         return next
       })
     }
     el.addEventListener('wheel', handler, { passive: false })
     return () => el.removeEventListener('wheel', handler)
-  }, [clampPan])
+  }, [clampPan, minZoom])
 
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (e.button !== 0) return
@@ -216,11 +235,9 @@ export function MapCanvas({
     const d = drag.current
     const el = svgRef.current
     if (!d || !el) return
-    // convert pixel delta into world units at the current zoom
-    const rect = el.getBoundingClientRect()
-    const perPxX = viewW / rect.width
-    const perPxZ = viewH / rect.height
-    setPan(clampPan({ x: d.ox - (e.clientX - d.px) * perPxX, z: d.oz - (e.clientY - d.pz) * perPxZ }, zoom))
+    // pixel delta → world units; both axes share one scale under cover
+    const per = scale > 0 ? 1 / scale : 1
+    setPan(clampPan({ x: d.ox - (e.clientX - d.px) * per, z: d.oz - (e.clientY - d.pz) * per }, zoom))
   }
 
   const endDrag = () => {
@@ -232,7 +249,7 @@ export function MapCanvas({
    * this to get the world-unit value that renders at that pixel size — on any
    * map, at any zoom. Falls back to 1 before the first measurement.
    */
-  const unitsPerPx = renderedPx > 0 ? viewW / renderedPx : 1
+  const unitsPerPx = scale > 0 ? 1 / scale : 1
 
   const MARKER_PX = 8
   const SELECTED_PX = 12
@@ -302,7 +319,7 @@ export function MapCanvas({
         ref={svgRef}
         className={`map-canvas ${drag.current ? 'dragging' : ''}`}
         style={cssW ? { width: cssW, height: cssH } : undefined}
-        viewBox={`${viewX} ${viewZ} ${viewW} ${viewH}`}
+        viewBox={`${viewX} ${viewZ} ${seenW} ${seenH}`}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
@@ -392,7 +409,7 @@ export function MapCanvas({
         <button onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z * 1.4))} title="Zoom in">
           +
         </button>
-        <button onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z / 1.4))} title="Zoom out">
+        <button onClick={() => setZoom((z) => Math.max(minZoom, z / 1.4))} title="Zoom out">
           −
         </button>
         <button
