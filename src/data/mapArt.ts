@@ -60,6 +60,8 @@ export interface MapFloor {
 }
 
 export interface MapArt {
+  /** This map's own key, so a calibration override can be looked up. */
+  slug: string
   /** [[maxX, minZ], [minX, maxZ]] in world units. */
   bounds: [[number, number], [number, number]]
   /** Degrees; applied to image and markers together. */
@@ -104,6 +106,7 @@ export interface MapArt {
 
 export const MAP_ART: Record<string, MapArt> = {
   "customs": {
+    slug: "customs",
     bounds: [[698, -307], [-372, 237]],
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/Customs.svg",
@@ -160,6 +163,7 @@ export const MAP_ART: Record<string, MapArt> = {
     ],
   },
   "factory": {
+    slug: "factory",
     bounds: [[77, -64.5], [-65.5, 67.4]],
     rotation: 90,
     svg: "https://assets.tarkov.dev/maps/svg/Factory.svg",
@@ -211,6 +215,7 @@ export const MAP_ART: Record<string, MapArt> = {
     ],
   },
   "ground-zero": {
+    slug: "ground-zero",
     bounds: [[249, -124], [-99, 364]],
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/GroundZero.svg",
@@ -249,6 +254,7 @@ export const MAP_ART: Record<string, MapArt> = {
     ],
   },
   "interchange": {
+    slug: "interchange",
     bounds: [[598, -442], [-433, 426]],
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/Interchange.svg",
@@ -347,6 +353,7 @@ export const MAP_ART: Record<string, MapArt> = {
     ],
   },
   "lighthouse": {
+    slug: "lighthouse",
     bounds: [[515, -998], [-545, 725]],
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/Lighthouse.svg",
@@ -384,6 +391,7 @@ export const MAP_ART: Record<string, MapArt> = {
     ],
   },
   "reserve": {
+    slug: "reserve",
     bounds: [[289, -293], [-303, 244]],
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/Reserve.svg",
@@ -433,6 +441,7 @@ export const MAP_ART: Record<string, MapArt> = {
     ],
   },
   "shoreline": {
+    slug: "shoreline",
     bounds: [[504, -415], [-1056, 618]],
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/Shoreline.svg",
@@ -477,6 +486,7 @@ export const MAP_ART: Record<string, MapArt> = {
     ],
   },
   "streets-of-tarkov": {
+    slug: "streets-of-tarkov",
     bounds: [[323, -295], [-280, 532]],
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/StreetsOfTarkov.svg",
@@ -553,6 +563,7 @@ export const MAP_ART: Record<string, MapArt> = {
     ],
   },
   "the-lab": {
+    slug: "the-lab",
     bounds: [[-80, -477], [-287, -193]],
     rotation: 270,
     svg: null,
@@ -599,6 +610,7 @@ export const MAP_ART: Record<string, MapArt> = {
     ],
   },
   "the-labyrinth": {
+    slug: "the-labyrinth",
     bounds: [[-52, -37], [53, 76]],
     rotation: 270,
     svg: null,
@@ -614,6 +626,7 @@ export const MAP_ART: Record<string, MapArt> = {
     ],
   },
   "woods": {
+    slug: "woods",
     bounds: [[646, -914], [-761, 442]],
     rotation: 180,
     svg: "https://assets.tarkov.dev/maps/svg/Woods.svg",

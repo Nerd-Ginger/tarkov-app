@@ -88,6 +88,7 @@ const entries = [...picked.entries()]
       .join('\n')
     return [
       `  ${q(key)}: {`,
+      `    slug: ${q(key)},`,
       `    bounds: [[${m.bounds[0][0]}, ${m.bounds[0][1]}], [${m.bounds[1][0]}, ${m.bounds[1][1]}]],`,
       `    rotation: ${m.coordinateRotation ?? 0},`,
       `    svg: ${m.svgPath ? q(m.svgPath) : 'null'},`,
@@ -171,6 +172,8 @@ export interface MapFloor {
 }
 
 export interface MapArt {
+  /** This map's own key, so a calibration override can be looked up. */
+  slug: string
   /** [[maxX, minZ], [minX, maxZ]] in world units. */
   bounds: [[number, number], [number, number]]
   /** Degrees; applied to image and markers together. */

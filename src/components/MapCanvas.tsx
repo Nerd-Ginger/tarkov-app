@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MapArt } from '../data/mapArt'
 import { useMapSvg } from '../hooks/useMapSvg'
 import { MapTiles } from './MapTiles'
+import { CALIBRATED_ART_BOUNDS } from '../data/mapCalibration'
 
 /**
  * A pan/zoom SVG viewport for one map's artwork, with markers plotted in raw
@@ -130,7 +131,7 @@ export function MapCanvas({
   const cz = minZ + height / 2
 
   // where the artwork sits in world space — usually the same box as the markers
-  const [[ax0, az0], [ax1, az1]] = art.svgBounds ?? art.bounds
+  const [[ax0, az0], [ax1, az1]] = CALIBRATED_ART_BOUNDS[art.slug] ?? art.svgBounds ?? art.bounds
   const artX = Math.min(ax0, ax1)
   const artZ = Math.min(az0, az1)
   const artW = Math.abs(ax1 - ax0)
