@@ -374,8 +374,11 @@ export function MapView({ quests, mapIds, progress, done, active, hideDone, onQu
         <>
           <MapCanvas
             art={art}
-            markers={placed.map((p) => p.marker)}
-            showLabels={showLabels}
+            /* Artwork only while alignment is being sorted out: no quest markers,
+               no zone polygons, no landmark labels. Floors stay, so each level can
+               be checked on its own. Pass the markers back in to restore it. */
+            markers={[]}
+            showLabels={false}
             activeGroup={activeFloor?.group ?? null}
             activeTiles={activeFloor?.tiles ?? null}
             selectedIds={selectedIds}
