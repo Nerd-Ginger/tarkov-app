@@ -161,6 +161,8 @@ interface JsonMap {
   name: string
   normalizedName?: string
   locks?: { lockType: string; needsPower: boolean; key: string | null }[] | null
+  lootLoose?: { items?: string[] | null }[] | null
+  lootContainers?: { lootContainer: string }[] | null
   bosses?: {
     mob: string
     spawnChance: number | null
@@ -299,6 +301,40 @@ export async function intelFromJson(): Promise<RawIntel> {
       })),
     })),
   }
+}
+
+// ---- map loot ----
+
+/**
+ * Items whose loose spawns the Upkeep tab ranks maps by. maps.json is ~9MB of
+ * positions; reducing to counts here keeps the task cache from carrying it.
+ */
+/**
+ * Inlined rather than imported from data/upkeep: the snapshot script runs this
+ * file under plain Node, which can't resolve the app's extensionless imports.
+ * Metal fuel tank, Expeditionary fuel tank, FP-100 filter absorber, Graphics card.
+ */
+const WATCHED_LOOT = new Set([
+  '5d1b36a186f7742523398433',
+  '5d1b371186f774253763a656',
+  '5d1b2f3f86f774252167a52c',
+  '57347ca924597744596b4e71',
+])
+/** FP-100s never spawn loose — these are the containers that roll them. */
+const WATCHED_CRATES = new Set(['technical-supply-crate', 'toolbox'])
+
+function lootCounts(m: JsonMap, containerName: Map<string, string>): Pick<RawMap, 'loot' | 'crates'> {
+  const loot: Record<string, number> = {}
+  for (const spawn of m.lootLoose ?? []) {
+    // a spawn point lists every item it can roll — count the point once per item
+    for (const id of new Set(spawn.items ?? [])) if (WATCHED_LOOT.has(id)) loot[id] = (loot[id] ?? 0) + 1
+  }
+  const crates: Record<string, number> = {}
+  for (const c of m.lootContainers ?? []) {
+    const name = containerName.get(c.lootContainer)
+    if (name && WATCHED_CRATES.has(name)) crates[name] = (crates[name] ?? 0) + 1
+  }
+  return { loot, crates }
 }
 
 // ---- tasks (and everything else bundled in the task cache) ----
@@ -474,6 +510,9 @@ export async function tasksFromJson(mode: GameMode = 'pve'): Promise<JsonTaskDat
     rewardItems: c.productItem ? [tradeItem(c.productItem)] : [],
   }))
 
+  const containerName = new Map(
+    values<{ id: string; normalizedName: string }>(mapsRaw, 'lootContainers').map((c) => [c.id, c.normalizedName]),
+  )
   const maps: RawMap[] = values<JsonMap>(mapsRaw, 'maps').map((m) => ({
     // the id is what objective zones reference; display names are aliased
     id: m.id,
@@ -486,6 +525,7 @@ export async function tasksFromJson(mode: GameMode = 'pve'): Promise<JsonTaskDat
         ? { ...itemRef(l.key), wikiLink: itemById.get(l.key)?.wikiLink ?? '' }
         : null,
     })),
+    ...lootCounts(m, containerName),
   }))
 
   return {

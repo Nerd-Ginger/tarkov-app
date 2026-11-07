@@ -1,5 +1,5 @@
 import type { Profile, QuestFaction } from '../types'
-import { MAX_LOYALTY, REP_TRADERS } from '../hooks/useProfile'
+import { MAX_LOYALTY, MAX_SKILL, REP_TRADERS } from '../hooks/useProfile'
 import { GATED_TRADERS } from '../data/traderGate'
 
 const FACTIONS: QuestFaction[] = ['Any', 'BEAR', 'USEC']
@@ -16,6 +16,7 @@ interface Props {
   onSetTraderUnlocked: (trader: string, unlocked: boolean) => void
   onSetFaction: (faction: QuestFaction) => void
   onSetReputation: (trader: string, value: number | null) => void
+  onSetHideoutManagement: (level: number) => void
   onResetForWipe: () => void
 }
 
@@ -29,6 +30,7 @@ export function ProfileView({
   onSetTraderUnlocked,
   onSetFaction,
   onSetReputation,
+  onSetHideoutManagement,
   onResetForWipe,
 }: Props) {
   return (
@@ -44,6 +46,20 @@ export function ProfileView({
             value={profile.pmcLevel || ''}
             placeholder="1"
             onChange={(e) => onSetPmcLevel(Number.parseInt(e.target.value, 10) || 0)}
+          />
+        </label>
+        <label
+          className="num-label profile-pmc"
+          title="Cuts generator fuel and air-filter burn 0.5% per level, up to 25%. 51 = elite. Drives the Upkeep tab."
+        >
+          Hideout Management
+          <input
+            type="number"
+            min={0}
+            max={MAX_SKILL}
+            value={profile.skills.hideoutManagement || ''}
+            placeholder="0"
+            onChange={(e) => onSetHideoutManagement(Number.parseInt(e.target.value, 10) || 0)}
           />
         </label>
         <div className="faction-row">

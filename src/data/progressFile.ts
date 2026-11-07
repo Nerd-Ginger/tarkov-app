@@ -1,5 +1,6 @@
 import type { Inventory } from '../hooks/useInventory'
 import type { QuestProgress } from '../hooks/useQuestProgress'
+import { asSkills } from '../hooks/useProfile'
 import type { GameMode, Profile, QuestFaction } from '../types'
 
 const DEFAULT_PROFILE: Profile = {
@@ -8,6 +9,7 @@ const DEFAULT_PROFILE: Profile = {
   unlockedTraders: {},
   faction: 'Any',
   reputation: {},
+  skills: { hideoutManagement: 0 },
 }
 
 /** Bump when the shape gains fields. Only used to warn about newer files. */
@@ -141,6 +143,8 @@ export function importProgress(onLoad: (data: ProgressData) => void) {
                         ),
                       ) as Record<string, number>)
                     : {},
+                // absent in files saved before the Upkeep tab — untrained is the safe default
+                skills: asSkills(parsed.profile.skills),
               }
             : DEFAULT_PROFILE
         // absent in files saved before favorites existed — empty is the safe default

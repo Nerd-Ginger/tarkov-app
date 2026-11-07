@@ -513,6 +513,13 @@ export interface RawMap {
   name: string
   normalizedName: string
   locks: RawLock[] | null
+  /**
+   * Loose-loot spawn points per watched item id (fuel, filters, GPUs) — counts
+   * only, never positions. JSON-only; absent on GraphQL loads and old caches.
+   */
+  loot?: Record<string, number>
+  /** Container counts by normalized name, for the container types we watch. JSON-only. */
+  crates?: Record<string, number>
 }
 
 /** One key→lock relationship on a map. */
@@ -582,4 +589,11 @@ export interface Profile {
    * since three Make Amends quests genuinely gate on `<= 0`.
    */
   reputation: Record<string, number>
+  /** Skill levels the Upkeep tab needs. 51 = elite. */
+  skills: ProfileSkills
+}
+
+export interface ProfileSkills {
+  /** Cuts fuel and air-filter burn 0.5% per level, capped at 25%. */
+  hideoutManagement: number
 }

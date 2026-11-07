@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import type { Profile, QuestFaction } from '../types'
+import type { Profile, ProfileSkills, QuestFaction } from '../types'
 
 const KEY = 'tarkov.profile.v1'
 export const MAX_LOYALTY = 4
@@ -12,7 +12,11 @@ const EMPTY: Profile = {
   unlockedTraders: {},
   faction: 'Any',
   reputation: {},
+  skills: { hideoutManagement: 0 },
 }
+
+/** Hideout Management tops out at 51 — level 51 is how the game reports elite. */
+export const MAX_SKILL = 51
 
 /** The only two traders any quest gates on standing. */
 export const REP_TRADERS = ['Fence', 'Lightkeeper']
@@ -29,6 +33,15 @@ function asRep(v: unknown): Record<string, number> {
   ) as Record<string, number>
 }
 
+/** Missing or junk skills read as 0 — the untrained default, which overstates costs rather than hiding them. */
+export function asSkills(v: unknown): ProfileSkills {
+  const hm = (v as Partial<ProfileSkills> | null)?.hideoutManagement
+  return {
+    hideoutManagement:
+      typeof hm === 'number' && Number.isFinite(hm) ? Math.min(Math.max(Math.round(hm), 0), MAX_SKILL) : 0,
+  }
+}
+
 function read(): Profile {
   try {
     const raw = localStorage.getItem(KEY)
@@ -41,6 +54,7 @@ function read(): Profile {
         p.unlockedTraders && typeof p.unlockedTraders === 'object' ? p.unlockedTraders : {},
       faction: asFaction(p?.faction),
       reputation: asRep(p?.reputation),
+      skills: asSkills(p?.skills),
     }
   } catch {
     return EMPTY
@@ -107,6 +121,14 @@ export function useProfile() {
     })
   }, [])
 
+  const setHideoutManagement = useCallback((level: number) => {
+    setProfile((prev) => {
+      const next = { ...prev, skills: asSkills({ ...prev.skills, hideoutManagement: level }) }
+      persist(next)
+      return next
+    })
+  }, [])
+
   const replaceProfile = useCallback((p: Profile) => {
     const next: Profile = {
       pmcLevel: typeof p?.pmcLevel === 'number' ? p.pmcLevel : 0,
@@ -115,6 +137,7 @@ export function useProfile() {
         p?.unlockedTraders && typeof p.unlockedTraders === 'object' ? p.unlockedTraders : {},
       faction: asFaction(p?.faction),
       reputation: asRep(p?.reputation),
+      skills: asSkills(p?.skills),
     }
     persist(next)
     setProfile(next)
@@ -127,6 +150,7 @@ export function useProfile() {
     setTraderUnlocked,
     setFaction,
     setReputation,
+    setHideoutManagement,
     replaceProfile,
   }
 }

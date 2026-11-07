@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AmmoView } from './components/AmmoView'
 import { StimsView } from './components/StimsView'
+import { UpkeepView } from './components/UpkeepView'
 import { BossesView } from './components/BossesView'
 import { KeysView } from './components/KeysView'
 import { ItemModal } from './components/ItemModal'
@@ -53,6 +54,7 @@ type View =
   | 'best'
   | 'items'
   | 'hideout'
+  | 'upkeep'
   | 'yardsale'
   | 'keys'
   | 'bosses'
@@ -70,6 +72,7 @@ const VIEWS: { id: View; label: string }[] = [
   { id: 'bosses', label: 'Bosses' },
   { id: 'items', label: 'Items' },
   { id: 'hideout', label: 'Hideout' },
+  { id: 'upkeep', label: 'Upkeep' },
   { id: 'yardsale', label: 'Yard Sale' },
   { id: 'keys', label: 'Keys' },
   { id: 'meds', label: 'Meds' },
@@ -92,7 +95,7 @@ const LEGACY_VIEWS: Record<string, View> = {
 }
 
 /** Views that show flea prices — visiting one triggers the lazy price fetch. */
-const PRICE_VIEWS = new Set<View>(['items', 'yardsale', 'keys'])
+const PRICE_VIEWS = new Set<View>(['items', 'yardsale', 'keys', 'upkeep'])
 /** Views that need trader-reset / goon / boss intel. */
 const INTEL_VIEWS = new Set<View>(['yardsale', 'bosses'])
 
@@ -139,6 +142,7 @@ export default function App() {
     setTraderUnlocked,
     setFaction,
     setReputation,
+    setHideoutManagement,
     replaceProfile,
   } = useProfile()
   const { favorites, pinned, toggleFavorite, togglePinned, replaceFavorites } = useFavorites()
@@ -315,7 +319,7 @@ export default function App() {
     replaceInventory({})
     replaceBuilt([])
     // faction survives a wipe deliberately — it's a property of the account, not the run
-    replaceProfile({ pmcLevel: 1, traders: {}, unlockedTraders: {}, faction: profile.faction, reputation: {} })
+    replaceProfile({ pmcLevel: 1, traders: {}, unlockedTraders: {}, faction: profile.faction, reputation: {}, skills: { hideoutManagement: 0 } })
     replaceFavorites([])
   }
 
@@ -784,6 +788,35 @@ export default function App() {
           <HideoutView stations={stations} built={built} inventory={inventory} onToggleBuilt={toggleLevel} />
         )}
 
+        {view === 'upkeep' && (
+          <section>
+            <h2>Upkeep</h2>
+            <p className="legend">
+              What the hideout costs to run — generator fuel, the bitcoin farm, air filters — and where the parts come
+              from. Station levels come from your <strong>Hideout</strong> checkboxes; PMC level, trader loyalty and
+              Hideout Management from <strong>Profile</strong>. Live {gameMode === 'pve' ? 'PvE' : 'PvP'} prices; 🔒
+              marks a route you can't take yet, <strong className="warn-text">≥</strong> a cost that's a floor because
+              some barter inputs have no market price. Click a barter or craft for the recipe.
+            </p>
+            <UpkeepView
+              crafts={crafts}
+              built={built}
+              done={done}
+              profile={profile}
+              locked={locked}
+              pricesById={pricesById}
+              usage={itemUsage}
+              maps={rawMaps}
+              loading={pricesLoading}
+              offline={pricesOffline}
+              onRefresh={() => void refreshPrices()}
+              onSetHideoutManagement={setHideoutManagement}
+              onOpenBarter={openBarter}
+              onOpenCraft={openCraft}
+            />
+          </section>
+        )}
+
         {view === 'yardsale' && (
           <section>
             <h2>Yard Sale</h2>
@@ -864,6 +897,7 @@ export default function App() {
               onSetTraderUnlocked={setTraderUnlocked}
               onSetFaction={setFaction}
               onSetReputation={setReputation}
+              onSetHideoutManagement={setHideoutManagement}
               onResetForWipe={resetForWipe}
             />
           </section>
