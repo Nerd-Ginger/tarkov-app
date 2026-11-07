@@ -571,7 +571,6 @@ export default function App() {
           <button className="menu-btn" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
             <span /><span /><span />
           </button>
-          <h1>Tarkov Quest Tracker</h1>
           <nav className="view-tabs">
             {VIEWS.map((v) => (
               <button
